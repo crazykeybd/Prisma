@@ -1,0 +1,3 @@
+interface:
+  display_name: "Relap5 Input Deck"
+  short_description: "Parse and edit RELAP5 input decks"

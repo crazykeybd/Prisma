@@ -1,0 +1,11 @@
+loggerConfigPath: config/logger.conf
+dataConfigPath: data/test_data.xlsx
+checkConfigPath: data/test_check_relap5.xlsx
+inputsDir: inputs
+testCasesDir: test_cases
+logDir: log
+executableName: relap5.exe
+maxWorkers: 0
+runMode: real
+runArgs:
+- '{input}'

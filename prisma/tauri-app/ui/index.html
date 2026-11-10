@@ -1,0 +1,3712 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>核能软件自动化测试平台</title>
+<style>
+  :root {
+    --bg:#eef2f6; --nav:#132d49; --nav2:#1b3c5d; --acc:#1670d8; --acc2:#0f5fba;
+    --panel:#fff; --line:#dce3eb; --line-soft:#eaf0f5; --fg:#202934; --dim:#68778a;
+    --ok:#188a50; --ok-bg:#e9f7f0; --bad:#d13d46; --bad-bg:#fff0f1;
+    --shadow:0 1px 2px rgba(20,42,66,.035);
+  }
+  * { box-sizing:border-box; }
+  html, body { min-height:100%; }
+  body { margin:0; font-family:"Segoe UI","Microsoft YaHei UI","Microsoft YaHei",sans-serif;
+    background:var(--bg); color:var(--fg); font-size:14px; overflow-x:hidden; }
+  .app { min-height:100vh; display:flex; flex-direction:column; }
+  .nav { position:sticky; top:0; z-index:20; background:var(--nav); color:#fff; min-height:52px; flex-shrink:0;
+    display:flex; align-items:stretch; padding:0 22px; box-shadow:0 1px 0 rgba(255,255,255,.06); }
+  .brand { align-self:center; font-size:17px; line-height:1.2; font-weight:650; letter-spacing:.02em; margin-right:9px; white-space:nowrap; }
+  .brand-sub { align-self:center; font-size:12px; opacity:.56; margin-right:28px; white-space:nowrap; }
+  .tabs { display:flex; height:52px; min-width:0; overflow-x:auto; scrollbar-width:none; }
+  .tabs::-webkit-scrollbar { display:none; }
+  .tab { padding:0 16px; display:flex; align-items:center; cursor:pointer; color:#cfdae7;
+    font-size:13.5px; white-space:nowrap; border-bottom:3px solid transparent; transition:background .12s,color .12s; }
+  .tab:hover { background:var(--nav2); color:#fff; }
+  .tab.active { background:var(--nav2); color:#fff; border-bottom-color:#59a9ff; }
+  .wrap { width:100%; max-width:none; flex:1; padding:20px 26px 28px; }
+  .page { width:100%; max-width:1560px; margin:0 auto; }
+  .project-context { width:100%; max-width:1560px; margin:0 auto 14px; min-height:48px;
+    display:grid; grid-template-columns:minmax(230px,max-content) minmax(180px,1fr) auto auto;
+    align-items:center; gap:10px 14px; padding:8px 10px 8px 14px;
+    background:#fff; border:1px solid var(--line); border-left:3px solid #59a9ff;
+    border-radius:6px; box-shadow:var(--shadow); }
+  .project-identity { display:flex; align-items:baseline; gap:9px; min-width:0; }
+  .project-kicker { color:var(--dim); font-size:11px; flex-shrink:0; }
+  .project-name { font-size:14px; font-weight:650; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .project-software { color:#315b84; background:#eef4fb; border-radius:4px; padding:2px 7px;
+    font-size:11px; white-space:nowrap; }
+  .project-path { min-width:0; color:var(--dim); font-family:Consolas,"Cascadia Mono",monospace;
+    font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .project-context select { width:min(270px,28vw); }
+  .project-context button { background:#f7f9fc; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:7px;
+    padding:16px; margin-bottom:14px; box-shadow:var(--shadow); }
+  .toolbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0; }
+  .toolbar .spacer { flex:1 1 16px; min-width:8px; }
+  .toolbar > .hint { margin:0; }
+  h2.page { font-size:17px; line-height:1.35; margin:0 0 4px; font-weight:650; }
+  .hint { color:var(--dim); font-size:12px; margin-bottom:12px; line-height:1.65; }
+  input[type=text], input[type=number], select {
+    min-width:0; height:32px; border:1px solid #cbd5e0; border-radius:5px;
+    padding:5px 9px; font:inherit; font-size:13px; color:var(--fg); background:#fff; }
+  input[type=text]:focus, input[type=number]:focus, select:focus {
+    outline:none; border-color:var(--acc); box-shadow:0 0 0 2px rgba(22,112,216,.14); }
+  input::placeholder { color:#9aa8b8; }
+  button { height:32px; border:1px solid var(--line); border-radius:5px; padding:0 13px;
+    font:inherit; font-size:13px; white-space:nowrap; cursor:pointer; background:#fff; color:var(--fg);
+    transition:background .12s,border-color .12s,color .12s; }
+  button:hover { border-color:#b9c7d8; background:#f6f9fc; }
+  button.primary { background:var(--acc); border-color:var(--acc); color:#fff; }
+  button.primary:hover { background:var(--acc2); border-color:var(--acc2); }
+  button.danger { color:var(--bad); background:var(--bad-bg); border-color:#f0c6ca; }
+  button:disabled { opacity:.48; cursor:not-allowed; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+    outline:2px solid #59a9ff; outline-offset:2px; }
+  label { white-space:nowrap; }
+  table { width:100%; border-collapse:collapse; font-size:13px; table-layout:auto; }
+  th, td { border-bottom:1px solid var(--line-soft); padding:9px 12px; text-align:left; vertical-align:middle; }
+  th { color:var(--dim); font-weight:600; background:#f7f9fc; white-space:nowrap; }
+  tbody tr:hover { background:#fafcff; }
+  td.center, th.center { text-align:center; }
+  .status-wait { color:var(--dim); } .status-run { color:var(--acc); font-weight:600; }
+  .status-ok { color:var(--ok); font-weight:600; } .status-bad { color:var(--bad); font-weight:600; }
+  .table-panel { padding:0; overflow:auto; }
+  .table-panel table { min-width:620px; }
+  .case-card { border:1px solid var(--line); border-radius:7px; padding:13px 14px 12px;
+    margin-bottom:14px; background:#fff; box-shadow:var(--shadow); overflow:hidden; }
+  .case-head { display:flex; align-items:center; gap:9px; margin-bottom:11px;
+    padding-bottom:10px; border-bottom:1px solid var(--line-soft); min-width:0; }
+  .case-head .label { color:var(--dim); font-size:13px; flex-shrink:0; }
+  .case-head input { width:min(260px,50%); }
+  .case-head .spacer { flex:1; }
+  .step-list { overflow-x:auto; padding-bottom:2px; }
+  .step-columns, .step-row { display:grid; grid-template-columns:24px minmax(150px,1.55fr) 124px minmax(120px,1fr)
+    repeat(4,minmax(86px,.82fr)) 72px; column-gap:10px; align-items:start; }
+  .step-columns { align-items:center; }
+  .step-columns { color:var(--dim); font-size:11px; padding:0 0 7px; margin-bottom:0; }
+  .step-row { margin-bottom:8px; }
+  .step-row .idx { text-align:right; color:var(--dim); font-variant-numeric:tabular-nums; padding-top:9px; }
+  .step-row .idx { grid-column:1; grid-row:1; }
+  .step-row .field-dir { grid-column:2; grid-row:1; }
+  .step-row .field-action { grid-column:3; grid-row:1; }
+  .step-row .field-object { grid-column:4; grid-row:1; }
+  .step-row .field-p1 { grid-column:5; grid-row:1; }
+  .step-row .field-p2 { grid-column:6; grid-row:1; }
+  .step-row .field-p3 { grid-column:7; grid-row:1; }
+  .step-row .field-p4 { grid-column:8; grid-row:1; }
+  .step-row .field-p5 { grid-column:9; grid-row:1; }
+  .step-row .step-actions { grid-column:-1; grid-row:1; display:flex; gap:4px; justify-content:flex-end; align-items:center; }
+  .step-field { display:block; min-width:0; }
+  .step-field input, .step-field select { width:100%; }
+  .step-row .copy { width:38px; padding:0; color:#52657a; }
+  .step-row .copy:hover { color:var(--acc); background:#eef6ff; border-color:#bfd7f2; }
+  .step-row .del { width:26px; padding:0; color:#8794a5; }
+  .step-row .del:hover { color:var(--bad); background:var(--bad-bg); border-color:#f0c6ca; }
+  .step-columns.dynamic, .step-row.dynamic { grid-template-columns:24px minmax(150px,1.55fr) 124px repeat(var(--field-count, 4), minmax(110px,1fr)) 72px; }
+  .step-insert { display:flex; align-items:center; gap:8px; min-height:22px; margin:-2px 0 5px; }
+  .step-insert::before, .step-insert::after { content:""; height:1px; flex:1; background:var(--line-soft); }
+  .step-insert button { height:22px; padding:0 9px; border-style:dashed; border-color:#cbd7e5; background:#fff; color:var(--dim); font-size:11px; white-space:nowrap; }
+  .step-insert button:hover { border-style:solid; border-color:#a9c4e2; background:#f2f8ff; color:var(--acc); }
+  .step-row .field-note { display:block; margin-top:4px; color:var(--dim); font-size:11px; line-height:1.35; white-space:normal; }
+  .step-row .field-target input { font-family:Consolas,"Cascadia Mono",monospace; background:#f7f9fc; }
+  .step-row .inp-picker { grid-column:2 / -2; grid-row:2; margin-top:8px; padding:10px; border:1px solid var(--line-soft); border-radius:6px; background:#f8fafc; align-self:stretch; }
+  .inp-picker-row { display:grid; grid-template-columns:minmax(160px,1fr) auto minmax(180px,1fr) auto; gap:8px; align-items:center; }
+  .inp-picker-row input { width:100%; }
+  .inp-picker-hint { color:var(--dim); font-size:11px; line-height:1.5; margin-top:5px; }
+  .inp-results { max-height:240px; overflow:auto; margin-top:8px; border:1px solid var(--line-soft); border-radius:5px; background:#fff; }
+  .inp-results:empty { display:none; }
+  .inp-result {
+    width:100%; height:auto; min-height:40px; margin:0; display:grid;
+    grid-template-columns:minmax(132px,.85fr) minmax(210px,1.65fr) minmax(72px,.55fr);
+    gap:12px; align-items:center; border:0; border-bottom:1px solid var(--line-soft); border-radius:0;
+    padding:9px 11px; background:#fff; color:var(--fg); text-align:left;
+    font-size:12px; line-height:1.5; white-space:normal;
+  }
+  .inp-result:last-child { border-bottom:0; }
+  .inp-result:hover, .inp-result.selected { background:#eef6ff; border-color:transparent; border-bottom-color:var(--line-soft); }
+  .inp-result-target, .inp-result-meta, .inp-result-value { min-width:0; overflow-wrap:anywhere; }
+  .inp-result-target { font-family:Consolas,"Cascadia Mono",monospace; color:var(--acc); }
+  .inp-result-meta { color:var(--dim); }
+  .inp-result-value { justify-self:end; text-align:right; font-family:Consolas,"Cascadia Mono",monospace; color:#344255; white-space:normal; }
+  .inp-empty { padding:10px; color:var(--dim); font-size:12px; }
+  .mobile-label { display:none; }
+  .add-step { margin-top:2px; }
+  .logbox { height:clamp(260px,42vh,620px); overflow:auto; background:#101820; color:#cde3f5;
+    border-radius:5px; padding:12px 14px; font-family:Consolas,"Cascadia Mono",monospace;
+    font-size:12px; line-height:1.65; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .relap-input-area { width:100%; min-height:168px; resize:vertical; line-height:1.55; tab-size:8; }
+  .relap-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:9px; }
+  .relap-actions .filename { width:180px; }
+  .relap-actions .note { color:var(--dim); font-size:12px; }
+  .relap-summary { display:none; margin-top:14px; }
+  .relap-summary.show { display:block; }
+  .relap-meta { color:var(--dim); font-size:12px; line-height:1.75; margin:1px 0 10px; overflow-wrap:anywhere; }
+  .relap-meta b { color:var(--fg); font-weight:600; }
+  .relap-warnings { margin:10px 0; padding:9px 12px; border:1px solid #f3dfad; border-radius:5px;
+    background:#fff8e6; color:#795006; font-size:12px; line-height:1.75; }
+  .relap-warnings ul { margin:2px 0 0; padding-left:19px; }
+  .relap-features { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0 12px; }
+  .relap-feature { display:inline-flex; align-items:center; gap:5px; padding:4px 8px; border-radius:4px;
+    border:1px solid var(--line); background:#f7f9fc; color:var(--dim); font-size:12px; }
+  .relap-feature.ok { color:var(--ok); border-color:#cce8d9; background:var(--ok-bg); }
+  .relap-filter { display:grid; grid-template-columns:minmax(200px,1fr) minmax(170px,auto) auto;
+    align-items:center; gap:8px; margin:12px 0 9px; }
+  .relap-filter input, .relap-filter select { width:100%; }
+  .relap-table-wrap { overflow:auto; border:1px solid var(--line-soft); border-radius:5px; max-height:620px; }
+  .relap-table-wrap table { min-width:1050px; table-layout:fixed; font-size:12px; }
+  .relap-table-wrap th { position:sticky; top:0; z-index:1; }
+  .relap-table-wrap td { vertical-align:top; padding:7px 9px; line-height:1.5; }
+  .relap-table-wrap td.raw-cell { font-family:Consolas,"Cascadia Mono",monospace; white-space:pre-wrap;
+    overflow-wrap:anywhere; color:#344255; }
+  .relap-table-wrap td.fields-cell { color:#40546c; }
+  .relap-table-wrap tr.row-comment td, .relap-table-wrap tr.row-directive td,
+  .relap-table-wrap tr.row-title td { color:var(--dim); background:#fbfcfe; }
+  .relap-table-wrap tr.row-unparsed td { background:#fff7f7; }
+  .relap-pill { display:inline-block; max-width:100%; padding:2px 6px; border-radius:10px;
+    background:#eef4fb; color:#315b84; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; vertical-align:top; }
+  .relap-kind { color:var(--dim); font-size:11px; margin-top:3px; }
+  .relap-count { color:var(--dim); font-size:12px; white-space:nowrap; }
+  .cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:14px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:7px;
+    padding:15px 18px; min-width:0; box-shadow:var(--shadow); }
+  .card .num { font-size:22px; font-weight:650; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .card .cap { color:var(--dim); font-size:12px; margin-top:5px; }
+  .warn { color:#9a5b08; background:#fff8e6; border:1px solid #f3dfad; border-radius:5px;
+    padding:9px 12px; font-size:12px; display:none; margin-bottom:14px; white-space:pre-line; }
+  .crumb { color:var(--acc); cursor:pointer; }
+  .filelist td:first-child { cursor:pointer; }
+  .filelist .dir { color:var(--acc); font-weight:500; }
+  textarea { width:100%; font-family:Consolas,monospace; font-size:12px; border:1px solid #cdd4de; border-radius:6px; padding:8px; }
+  .cfg-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:13px 18px;
+    margin-top:17px; padding-top:15px; border-top:1px solid var(--line-soft); }
+  .cfg-row { display:grid; grid-template-columns:minmax(0,1fr); gap:5px; align-content:start; margin:0; }
+  .cfg-row .k { color:var(--dim); font-size:12px; overflow-wrap:anywhere; }
+  .cfg-row input { width:100%; }
+  .form-row { display:grid; grid-template-columns:150px minmax(0,1fr) auto; align-items:center;
+    gap:9px; margin-bottom:9px; }
+  .form-row > span { color:var(--dim); }
+  .form-row.no-action { grid-template-columns:150px minmax(0,1fr); }
+  .form-row.path-row { grid-template-columns:150px minmax(0,1fr) auto auto; }
+  .run-options { display:grid; grid-template-columns:auto auto minmax(260px,1fr); align-items:center; gap:14px 24px; margin:12px 0 2px;
+    padding-top:13px; border-top:1px solid var(--line-soft); }
+  .option-group { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+  .run-options .field-label { color:var(--dim); }
+  .run-options .field-note { color:var(--dim); font-size:12px; }
+  .run-actions { display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:wrap; min-width:0; }
+  .run-log-panel { padding:12px; }
+  .path-bar { display:grid; grid-template-columns:76px minmax(0,1fr) auto auto; align-items:center;
+    gap:8px; margin-top:11px; }
+  .path-bar .path-label { color:var(--dim); font-size:12px; }
+  .path-bar input { width:100%; }
+  .section-tools { margin-top:11px; }
+  .empty-state { text-align:center; color:var(--dim); padding:42px 16px !important; }
+  .result-toolbar { margin-bottom:2px; }
+  .project-heading { align-items:flex-start; margin-bottom:14px; }
+  .project-heading h2 { margin-bottom:3px; }
+  .project-heading .hint { margin:0; }
+  .project-create { display:none; padding:14px 0 16px; margin:2px 0 14px;
+    border-top:1px solid var(--line-soft); border-bottom:1px solid var(--line-soft); }
+  .project-create.open { display:block; }
+  .project-form { display:grid; grid-template-columns:minmax(180px,.8fr) minmax(220px,1fr) minmax(260px,1.4fr) auto;
+    align-items:end; gap:12px; }
+  .project-field { display:grid; gap:6px; min-width:0; }
+  .project-field > span { color:var(--dim); font-size:12px; }
+  .project-field input, .project-field select { width:100%; }
+  .software-library-table { margin-top:10px; border:1px solid var(--line-soft); border-radius:5px; }
+  .software-library-table table { min-width:1050px; }
+  .software-library-table td { vertical-align:top; }
+  .software-name-cell { font-weight:600; }
+  .software-name-cell small { display:block; margin-top:3px; color:var(--dim); font-weight:400; }
+  .software-path { max-width:360px; font-family:Consolas,"Cascadia Mono",monospace;
+    font-size:11px; color:#40546c; overflow-wrap:anywhere; }
+  .software-path small { display:block; margin-top:3px; color:var(--dim);
+    font-family:"Segoe UI","Microsoft YaHei UI",sans-serif; font-size:11px; }
+  .software-version { white-space:nowrap; color:#40546c; }
+  .software-empty { padding:18px 12px; color:var(--dim); text-align:center; }
+  .software-actions { min-width:92px; }
+  .software-tag { display:inline-block; margin-left:6px; padding:1px 6px; border-radius:3px;
+    border:1px solid #c2dbf5; background:#edf5ff; color:var(--acc); font-size:10px;
+    font-weight:600; vertical-align:middle; }
+  .project-table table { min-width:980px; }
+  .project-name-cell { font-weight:600; }
+  .project-name-cell small { display:block; color:var(--dim); font-weight:400; margin-top:3px; }
+  .software-cell { min-width:135px; }
+  .software-cell small { display:block; color:var(--dim); font-weight:400; margin-top:3px; }
+  .path-cell { max-width:360px; font-family:Consolas,"Cascadia Mono",monospace; font-size:11px;
+    color:#40546c; overflow-wrap:anywhere; }
+  .status-pill { display:inline-flex; align-items:center; height:23px; padding:0 8px;
+    border:1px solid #cce8d9; border-radius:4px; color:var(--ok); background:var(--ok-bg);
+    font-size:11px; font-weight:600; white-space:nowrap; }
+  .status-pill.current { color:var(--acc); border-color:#c2dbf5; background:#edf5ff; }
+  .status-pill.reserved { color:var(--dim); border-color:var(--line); background:#f7f9fc; }
+  .status-pill.warning { color:#8b5700; border-color:#eed8a7; background:#fff8e6; }
+  .status-pill.invalid { color:var(--bad); border-color:#f0c6ca; background:var(--bad-bg); }
+  .row-actions { display:flex; justify-content:flex-end; gap:6px; flex-wrap:wrap; }
+  .project-empty { display:none; border:1px dashed #cfdae5; border-radius:6px;
+    padding:28px 18px; text-align:center; color:var(--dim); background:#fbfcfe; }
+  .modal-backdrop { position:fixed; inset:0; z-index:60; display:flex; align-items:center;
+    justify-content:center; padding:20px; background:rgba(10,25,40,.48); }
+  .modal-backdrop[hidden] { display:none; }
+  .modal { width:min(430px,100%); background:#fff; border:1px solid #cbd8e5; border-radius:7px;
+    padding:18px; box-shadow:0 18px 55px rgba(10,25,40,.23); }
+  .modal h3 { margin:0 0 7px; font-size:16px; }
+  .modal p { margin:0 0 13px; color:var(--dim); font-size:12px; line-height:1.65; }
+  .modal input { width:100%; }
+  .modal-form { display:grid; gap:12px; }
+  .modal-project-facts { display:grid; grid-template-columns:auto minmax(0,1fr); gap:7px 12px;
+    padding:10px 11px; border:1px solid var(--line-soft); border-radius:5px; background:#f8fafc;
+    font-size:12px; }
+  .modal-project-facts span { color:var(--dim); }
+  .modal-project-facts strong, .modal-project-facts code { min-width:0; color:#344255;
+    font-size:12px; font-weight:500; overflow-wrap:anywhere; }
+  .modal-project-facts code { font-family:Consolas,"Cascadia Mono",monospace; }
+  .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:15px; }
+  .modal.modal-wide { width:min(580px,100%); }
+  .modal-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+  .modal-grid .span-2 { grid-column:1 / -1; }
+  .modal-grid .project-field small { color:var(--dim); font-size:11px; line-height:1.5; margin:0; white-space:normal; }
+  .modal.modal-xl { width:min(1040px,100%); max-height:88vh; overflow:auto; }
+  .wiz-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:11px 12px; }
+  .wiz-grid .span-2 { grid-column:span 2; }
+  .wiz-grid .span-4 { grid-column:1 / -1; }
+  .wiz-grid .project-field small { color:var(--dim); font-size:11px; line-height:1.5; white-space:normal; }
+  .wiz-section { display:grid; gap:9px; padding-top:12px; border-top:1px solid var(--line-soft); }
+  .wiz-section-head { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+  .wiz-section-head b { font-size:13px; }
+  .wiz-section-head .hint { margin:0; }
+  .wiz-rows { border:1px solid var(--line-soft); border-radius:6px; overflow:auto; }
+  .wiz-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .wiz-table th { background:#f7f9fc; color:var(--dim); font-weight:600; padding:6px 8px;
+    white-space:nowrap; border-bottom:1px solid var(--line-soft); text-align:left; }
+  .wiz-table td { padding:5px 7px; border-bottom:1px solid var(--line-soft); vertical-align:top; }
+  .wiz-table tr:last-child td { border-bottom:0; }
+  .wiz-table input, .wiz-table select { width:100%; }
+  .wiz-table .wiz-kind { width:118px; }
+  .wiz-table .wiz-target { min-width:210px; }
+  .wiz-table .wiz-case { min-width:104px; }
+  .wiz-table .wiz-del { width:30px; }
+  .wiz-empty { padding:14px; text-align:center; color:var(--dim); }
+  .wiz-hits { display:grid; gap:2px; margin-top:5px; max-height:150px; overflow:auto; }
+  .wiz-hit { height:auto; padding:3px 7px; font-size:11px; line-height:1.45; text-align:left;
+    color:#344255; background:#eef6ff; border-color:#cfe1f6; white-space:normal; }
+  .wiz-row-actions { display:flex; gap:8px; flex-wrap:wrap; }
+  .wiz-preview { border:1px solid var(--line-soft); border-radius:6px; background:#f8fafc;
+    padding:10px 12px; font-size:12px; line-height:1.65; color:#344255; max-height:210px; overflow:auto; }
+  .wiz-preview .wiz-preview-case { margin-bottom:9px; }
+  .wiz-preview .wiz-preview-case:last-child { margin-bottom:0; }
+  .wiz-preview code { font-family:Consolas,"Cascadia Mono",monospace; color:var(--acc); }
+  .script-path-bar { grid-template-columns:76px minmax(0,1fr) minmax(150px,215px) auto auto; }
+  .step-field.missing input, .step-field.missing select { border-color:#e2a3a8; background:#fffafa; }
+  .case-head .case-actions { display:flex; gap:6px; flex-wrap:wrap; margin-left:4px; }
+  .case-steps-bar { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:7px;
+    padding-top:9px; border-top:1px dashed var(--line-soft); }
+  .case-steps-bar .case-dir { color:var(--dim); font-size:11px; margin-right:4px; }
+  .case-steps-bar .case-dir code { font-family:Consolas,"Cascadia Mono",monospace; color:#40546c; }
+  .step-row .step-move { width:22px; padding:0; color:#8794a5; font-size:11px; }
+  .step-row .step-move:hover { color:var(--acc); background:#eef6ff; border-color:#bfd7f2; }
+  .step-row .act-note { display:block; margin-top:3px; color:var(--dim); font-size:10px;
+    line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  @media (max-width: 720px) { .modal-grid { grid-template-columns:1fr; } }
+  @media (max-width: 1180px) {
+    .nav { padding:0 14px; } .brand-sub { display:none; } .brand { margin-right:22px; }
+    .tab { padding:0 13px; } .wrap { padding:18px 18px 24px; }
+  }
+  /* At laptop and split-screen widths, use one compact card per step instead
+     of squeezing eight fields into a single unreadable row. */
+  @media (max-width: 1080px) {
+    .step-columns { display:none; }
+    .step-list { overflow:visible; }
+    .step-row {
+      grid-template-columns:24px minmax(0,1fr) minmax(0,1fr) 72px;
+      gap:11px 12px; padding:13px; margin-bottom:10px;
+      border:1px solid var(--line-soft); border-radius:6px; background:#fbfcfe;
+    }
+    .step-row .idx { padding-top:0; }
+    .step-row.dynamic { grid-template-columns:24px minmax(0,1fr) minmax(0,1fr) 72px; row-gap:16px; }
+    .step-row.dynamic .idx { grid-row:1 / span 5; grid-column:1; align-self:start; padding-top:22px; }
+    .step-row.dynamic .inp-picker { grid-row:auto; margin-top:0; }
+    .step-row.dynamic .field-dir { grid-row:1; grid-column:2 / span 2; }
+    .step-row.dynamic .field-action { grid-row:2; grid-column:2; }
+    .step-row.dynamic .field-object { grid-row:2; grid-column:3; }
+    .step-row.dynamic .field-p1 { grid-row:3; grid-column:2; }
+    .step-row.dynamic .field-p2 { grid-row:3; grid-column:3; }
+    .step-row.dynamic .field-p3 { grid-row:4; grid-column:2; }
+    .step-row.dynamic .field-p4 { grid-row:4; grid-column:3; }
+    .step-row.dynamic .field-p5 { grid-row:5; grid-column:2; }
+    .step-row.dynamic .step-actions { grid-row:1; grid-column:4; justify-self:end; }
+    .mobile-label { display:block; color:var(--dim); font-size:11px; line-height:1.2; margin-bottom:5px; }
+    .mobile-label { display:block; color:var(--dim); font-size:11px; line-height:1.2; margin-bottom:5px; }
+  }
+  @media (max-width: 1120px) {
+    .cfg-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .run-options { grid-template-columns:auto minmax(0,1fr); }
+    .run-actions { grid-column:1 / -1; justify-content:flex-start; padding-top:2px; }
+  }
+  @media (max-width: 820px) {
+    .nav { min-height:0; padding:0; display:grid; grid-template-columns:1fr; }
+    .brand { margin:0; padding:14px 18px 11px; min-height:44px; }
+    .tabs { height:42px; padding:0 7px; border-top:1px solid rgba(255,255,255,.08); }
+    .tab { padding:0 11px; border-bottom-width:2px; font-size:13px; }
+    .wrap { padding:14px 12px 20px; }
+    .project-context { grid-template-columns:minmax(0,1fr) auto; gap:7px 8px; padding:9px 10px; }
+    .project-identity { grid-column:1; grid-row:1; }
+    .project-path { grid-column:1 / -1; grid-row:2; }
+    .project-context select { width:min(170px,44vw); grid-column:1; grid-row:3; }
+    .project-context > button { grid-column:2; grid-row:3; }
+    .project-form { grid-template-columns:1fr; align-items:stretch; }
+    .project-form button { justify-self:start; }
+    .project-create { grid-column:1; }
+    .panel { padding:13px; margin-bottom:11px; }
+    .cards { grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+    .card { padding:13px 14px; }
+    .card .num { font-size:20px; }
+    .case-head { flex-wrap:wrap; }
+    .case-head input { width:auto; flex:1 1 180px; }
+    .case-head .spacer { display:none; }
+    .case-head button { margin-left:auto; }
+    .step-row { grid-template-columns:22px minmax(0,1fr) 72px; }
+    .step-row.dynamic { grid-template-columns:22px minmax(0,1fr) 72px; row-gap:15px; }
+    .step-row.dynamic .idx { grid-row:1 / span 8; }
+    .step-row.dynamic .field-dir { grid-row:1; grid-column:2; }
+    .step-row.dynamic .field-action { grid-row:2; grid-column:2; }
+    .step-row.dynamic .field-p1 { grid-row:4; grid-column:2; }
+    .step-row.dynamic .field-p2 { grid-row:5; grid-column:2; }
+    .step-row.dynamic .field-p3 { grid-row:6; grid-column:2; }
+    .step-row.dynamic .field-p4 { grid-row:7; grid-column:2; }
+    .step-row.dynamic .field-p5 { grid-row:8; grid-column:2; }
+    .step-row.dynamic .field-object { grid-row:3; grid-column:2; }
+    .step-row.dynamic .step-actions { grid-row:1; grid-column:3; justify-self:end; }
+    .inp-picker-row { grid-template-columns:1fr; }
+    .step-row .inp-picker { grid-column:2 / -2; }
+    .inp-result { grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"target value" "meta meta"; gap:2px 10px; align-items:start; }
+    .inp-result-target { grid-area:target; }
+    .inp-result-meta { grid-area:meta; }
+    .inp-result-value { grid-area:value; }
+    .step-row .step-actions { grid-row:1; grid-column:3; justify-self:end; }
+    .form-row, .form-row.no-action { grid-template-columns:1fr; gap:5px; }
+    .form-row.path-row { grid-template-columns:minmax(0,1fr) auto auto; }
+    .form-row.path-row > span { grid-column:1 / -1; }
+    .form-row button { justify-self:start; }
+    .path-bar { grid-template-columns:minmax(0,1fr) auto auto; }
+    .path-bar .path-label { grid-column:1 / -1; }
+    .cfg-grid { grid-template-columns:1fr; }
+    .run-options { grid-template-columns:1fr; align-items:flex-start; gap:12px; }
+    .run-actions { width:100%; margin-left:0; padding-top:3px; justify-content:flex-start; }
+    .table-panel { border-radius:6px; }
+    .table-panel table { min-width:540px; }
+    .relap-filter { grid-template-columns:1fr; }
+    .relap-table-wrap { max-height:520px; }
+    .relap-actions .filename { width:100%; }
+    .logbox { height:clamp(280px,50vh,520px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition:none !important; }
+  }
+</style>
+<body>
+<div class="app">
+<div class="nav">
+  <span class="brand">核能软件自动化测试平台</span>
+  <span class="brand-sub">Prisma 自动化测试框架</span>
+  <div class="tabs" id="tabs"></div>
+</div>
+<div class="wrap">
+  <div class="project-context" id="projectContext">
+    <div class="project-identity">
+      <span class="project-kicker">当前项目</span>
+      <span class="project-name" id="ctxProjectName">正在读取...</span>
+      <span class="project-software" id="ctxSoftware">-</span>
+    </div>
+    <div class="project-path" id="ctxProjectPath" title="">-</div>
+    <select id="projectSelect" aria-label="切换当前项目" onchange="activateProject(this.value)"></select>
+    <button onclick="openProjects()">项目管理</button>
+  </div>
+  <div id="warn" class="warn"></div>
+
+  <!-- ============ 项目管理 ============ -->
+  <div id="page-projects" class="page" style="display:none">
+    <div class="panel">
+      <div class="toolbar project-heading">
+        <div>
+          <h2 class="page">项目管理</h2>
+          <div class="hint">每个项目固定对应一类被测软件，剧本、输入卡、结果、日志和运行现场均保存在该项目目录内。</div>
+        </div>
+        <div class="spacer"></div>
+        <button onclick="refreshProjectCatalog()">刷新</button>
+        <button id="btnOpenProject" onclick="openProject()">打开项目</button>
+        <button id="btnSaveCurrentProject" onclick="openSaveProject()">保存项目</button>
+        <button class="primary" id="btnNewProject" onclick="toggleCreateProject()">＋ 新建项目</button>
+      </div>
+
+      <div class="project-create" id="projectCreatePanel">
+        <form class="project-form" id="createProjectForm" onsubmit="createProject(event)">
+          <label class="project-field">
+            <span>项目名称</span>
+            <input type="text" id="newProjectName" maxlength="60" autocomplete="off"
+              placeholder="例如：RELAP5 基准回归" required>
+          </label>
+          <label class="project-field">
+            <span>被测软件</span>
+            <select id="newProjectSoftware" required></select>
+          </label>
+          <label class="project-field">
+            <span>项目说明（可选）</span>
+            <input type="text" id="newProjectDescription" maxlength="200" autocomplete="off"
+              placeholder="用途、版本或负责人">
+          </label>
+          <div class="row-actions">
+            <button type="button" onclick="toggleCreateProject(false)">取消</button>
+            <button type="submit" class="primary" id="btnCreateProject">创建项目</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="panel table-panel project-table">
+      <table>
+        <thead><tr>
+          <th>项目</th><th style="width:145px">被测软件</th><th>项目路径</th>
+          <th style="width:145px">创建时间</th><th style="width:100px">状态</th>
+          <th style="width:220px" class="center">操作</th>
+        </tr></thead>
+        <tbody id="projectRows"></tbody>
+      </table>
+      <div class="project-empty" id="projectEmpty">
+        还没有独立测试项目。请到软件库确认被测程序已就绪，然后新建项目。
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 软件库 ============ -->
+  <div id="page-software" class="page" style="display:none">
+    <div class="panel">
+      <div class="toolbar project-heading">
+        <div>
+          <h2 class="page">软件库</h2>
+          <div class="hint" id="softwareLibraryHint">
+            被测程序、依赖文件和输入模板集中保存在软件库；项目只保留测试数据。
+          </div>
+        </div>
+        <div class="spacer"></div>
+        <button onclick="refreshProjectCatalog()">刷新状态</button>
+        <button onclick="openSoftwareLibrary()">打开软件库文件夹</button>
+        <button class="primary" id="btnNewSoftware" onclick="openSoftwareCreate()">＋ 新增软件</button>
+      </div>
+      <div class="table-panel software-library-table">
+        <table>
+          <thead><tr>
+            <th style="width:175px">软件</th>
+            <th style="width:105px">类型</th>
+            <th style="width:135px">程序状态</th>
+            <th style="width:105px">版本</th>
+            <th style="width:90px">模板</th>
+            <th>软件库目录</th>
+            <th style="width:165px" class="center">操作</th>
+          </tr></thead>
+          <tbody id="softwareLibraryRows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 总览 ============ -->
+  <div id="page-overview" class="page">
+    <div class="cards">
+      <div class="card"><div class="num" id="ov-cases">-</div><div class="cap">剧本用例数</div></div>
+      <div class="card"><div class="num" id="ov-last">-</div><div class="cap">上次运行</div></div>
+      <div class="card"><div class="num" id="ov-mode">-</div><div class="cap">运行模式</div></div>
+      <div class="card"><div class="num" id="ov-script">-</div><div class="cap" id="ov-script-cap">当前剧本</div></div>
+    </div>
+    <div class="panel">
+      <h2 class="page">框架说明</h2>
+      <div class="hint">
+        关键词驱动 + 数据驱动：测试剧本以 Excel 描述（sheet 名 testcase），框架自动完成运行目录创建、
+        输入卡与可执行程序拷贝、程序执行、结果提取与回填。支持生产者/消费者并行执行与模拟/真实两种运行模式。
+      </div>
+      <div class="toolbar">
+        <button class="primary" onclick="switchTab('run')">▶ 前往运行测试</button>
+        <button onclick="switchTab('script')">编辑测试剧本</button>
+        <button onclick="switchTab('results')">查看测试结果</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 测试剧本 ============ -->
+  <div id="page-script" class="page" style="display:none">
+    <div class="panel">
+      <div class="toolbar">
+        <h2 class="page">测试剧本</h2>
+        <span class="hint" id="script-file-hint"></span>
+        <div class="spacer"></div>
+        <button class="primary" onclick="openScriptWizard()">＋ 新建剧本</button>
+        <button onclick="addCase()">＋ 新增用例</button>
+        <button onclick="checkScript()">检查剧本</button>
+        <button onclick="loadScript()">取消编辑</button>
+        <button class="primary" onclick="saveScript()">保存变更</button>
+        <button onclick="saveAs()">另存为正式数据</button>
+      </div>
+      <div class="path-bar script-path-bar section-tools">
+        <span class="path-label">剧本文件</span>
+        <input type="text" id="scriptPath" placeholder="data/test_data_ui.xlsx">
+        <select id="scriptPicker" onchange="onScriptPicked()" aria-label="项目内的剧本文件">
+          <option value="">选择项目内的剧本…</option>
+        </select>
+        <button onclick="loadScript(document.getElementById('scriptPath').value)">加载</button>
+        <button onclick="pickPath('scriptPath')">浏览...</button>
+      </div>
+    </div>
+    <div id="scriptEditor"></div>
+  </div>
+
+  <!-- ============ 输入卡 ============ -->
+  <div id="page-relap" class="page" style="display:none">
+    <div class="panel">
+      <div class="toolbar">
+        <div>
+          <h2 class="page">输入卡解析</h2>
+          <div class="hint" style="margin:3px 0 0">支持 RELAP5 卡格式，以及“左侧值列 + 右侧说明列”的位置型输入卡；无法识别的行会保留并标记。</div>
+        </div>
+        <div class="spacer"></div>
+        <select id="relapInputFormat" aria-label="输入卡格式" onchange="if(document.getElementById('relapInputPath').value.trim()) loadRelapInput()">
+          <option value="">自动识别格式</option>
+          <option value="relap5">RELAP5 卡格式</option>
+          <option value="positional_text">位置型值 + 说明</option>
+        </select>
+        <button onclick="loadRelapInput()">解析输入卡文件</button>
+        <button onclick="pickPath('relapInputPath','input')">浏览...</button>
+      </div>
+      <div class="path-bar section-tools">
+        <span class="path-label">输入卡文件</span>
+        <input type="text" id="relapInputPath" placeholder="例如：inputs\CheckSGInput.txt 或 inputs\relap5\indta" onkeydown="if(event.key==='Enter') loadRelapInput()">
+        <span></span>
+        <span></span>
+      </div>
+      <div class="hint" style="margin:14px 0 6px">也可以直接粘贴输入卡内容。文件名只用于结果标识，不会写入磁盘。</div>
+      <textarea id="relapInputText" class="relap-input-area" spellcheck="false" placeholder="70 100             控制体个数&#10;14e6                二次侧进口压力Pa&#10;..."></textarea>
+      <div class="relap-actions">
+        <input type="text" class="filename" id="relapPasteFilename" value="pasted.txt" aria-label="粘贴内容文件名">
+        <button class="primary" onclick="parseRelapText()">解析粘贴内容</button>
+        <button onclick="clearRelapText()">清空</button>
+        <span class="note">文件与粘贴内容共用下方解析结果。</span>
+      </div>
+    </div>
+    <div class="panel" id="relapInputPanel">
+      <div class="toolbar">
+        <h2 class="page">解析结果</h2>
+        <span class="hint" id="relapFileName" style="margin:0"></span>
+        <div class="spacer"></div>
+        <span class="relap-count" id="relapRowCount"></span>
+      </div>
+      <div class="hint" id="relapInputSummary">尚未解析输入卡。选择文件或粘贴内容后开始。</div>
+      <div class="relap-summary" id="relapInputSummaryDetail"></div>
+      <div class="relap-filter" id="relapFilterBar" style="display:none">
+        <input type="text" id="relapSearch" placeholder="搜索记录、参数说明、字段值或原始行..." oninput="renderRelapRows()">
+        <select id="relapCategoryFilter" onchange="renderRelapRows()"><option value="">全部分类</option></select>
+        <span class="relap-count" id="relapFilterCount"></span>
+      </div>
+      <div class="relap-table-wrap" id="relapTableWrap" style="display:none">
+        <table>
+          <colgroup>
+            <col style="width:58px"><col style="width:92px"><col style="width:100px"><col style="width:130px">
+            <col style="width:220px"><col style="width:150px"><col>
+          </colgroup>
+          <thead><tr><th>行号</th><th>卡号 / 记录</th><th>分类</th><th>关键字 / 说明</th><th>字段</th><th>注释 / 补充</th><th>原始行</th></tr></thead>
+          <tbody id="relapInputRows"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="toolbar">
+        <h2 class="page">输出文件分析</h2>
+        <span class="hint" style="margin:0">辅助检查输入处理、水力学编辑和错误信息。</span>
+      </div>
+      <div class="path-bar section-tools">
+        <span class="path-label">输出文件</span>
+        <input type="text" id="relapOutputPath" placeholder="log\outdta 或 test_cases\xxx\output.txt" onkeydown="if(event.key==='Enter') loadRelapOutput()">
+        <button class="primary" onclick="loadRelapOutput()">解析输出文件</button>
+        <button onclick="pickPath('relapOutputPath','output')">浏览...</button>
+      </div>
+      <div class="hint" id="relapOutputSummary" style="margin-top:12px"></div>
+      <div class="logbox" id="relapOutputView" style="height:260px"></div>
+    </div>
+  </div>
+  <!-- ============ 运行测试 ============ -->
+  <div id="page-run" class="page" style="display:none">
+    <div class="panel">
+      <h2 class="page">运行配置</h2>
+      <div class="hint">选择测试剧本、结果表和被测程序，然后开始执行。</div>
+      <div class="form-row path-row">
+        <span>测试剧本(xlsx)</span>
+        <input type="text" id="runScript">
+        <button onclick="pickPath('runScript')">浏览...</button>
+        <button onclick="loadRunCases()">载入用例</button>
+      </div>
+      <div class="form-row path-row">
+        <span>结果表(xlsx)</span>
+        <input type="text" id="runCheck">
+        <button onclick="pickPath('runCheck')">浏览...</button>
+        <button onclick="loadResultsForRun()">预览结果表</button>
+      </div>
+      <div class="form-row path-row">
+        <span>被测程序</span>
+        <input type="text" id="runExe">
+        <button onclick="pickPath('runExe','exec')">浏览...</button>
+      </div>
+      <div class="run-options">
+        <div class="option-group">
+          <span class="field-label">运行模式</span>
+          <label><input type="radio" name="mode" value="simulate" checked> 模拟运行</label>
+          <label><input type="radio" name="mode" value="real"> 真实运行被测程序</label>
+        </div>
+        <div class="option-group">
+          <label class="field-label" for="runWorkers">并行线程数</label>
+          <input type="number" id="runWorkers" value="0" min="0" max="64" style="width:76px">
+          <span class="field-note">0 = 自动</span>
+        </div>
+        <div class="run-actions">
+          <button onclick="loadSmokeExample()">载入冒烟示例</button>
+          <button class="primary" id="btnStart" onclick="startRun()">▶ 开始执行</button>
+          <button id="btnStop" onclick="stopRun()" disabled>■ 停止</button>
+          <span id="runSummary" style="color:var(--ok);font-weight:600"></span>
+        </div>
+      </div>
+    </div>
+    <div class="panel table-panel">
+      <table>
+        <thead><tr><th>用例编号</th><th class="center" style="width:120px">进度</th><th class="center" style="width:150px">状态</th></tr></thead>
+        <tbody id="runCases"><tr><td colspan="3" class="center status-wait empty-state">尚未加载</td></tr></tbody>
+      </table>
+    </div>
+    <div class="panel run-log-panel"><div class="logbox" id="runLog"></div></div>
+  </div>
+
+  <!-- ============ 测试结果 ============ -->
+  <div id="page-results" class="page" style="display:none">
+    <div class="panel">
+      <div class="toolbar result-toolbar">
+        <h2 class="page">测试结果</h2>
+        <span class="hint" id="results-file-hint"></span>
+      </div>
+      <div class="path-bar">
+        <span class="path-label">结果文件</span>
+        <input type="text" id="resultsPath" placeholder="data/test_check_relap5.xlsx">
+        <button class="primary" onclick="loadResults()">加载</button>
+        <button onclick="pickPath('resultsPath')">浏览...</button>
+      </div>
+    </div>
+    <div class="panel table-panel"><table id="resultsTable"><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <!-- ============ 关键词列表 ============ -->
+  <div id="page-keywords" class="page" style="display:none">
+    <div class="panel">
+      <h2 class="page">关键词列表</h2>
+      <div class="hint">每个关键词独立完成一项工作，关键词之间不互相调用。</div>
+      <div class="hint" style="margin:12px 0 6px">软件适配器</div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th style="width:180px">软件类型</th><th style="width:180px">名称</th><th style="width:100px">状态</th><th>说明</th></tr></thead>
+          <tbody id="softwareRows"></tbody>
+        </table>
+      </div>
+      <div class="toolbar" style="margin:12px 0 6px">
+        <div class="hint">关键词（内置 + 本项目自定义）</div>
+        <div class="spacer"></div>
+        <button class="primary" onclick="openKeywordEditor()">＋ 新增关键词</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th style="width:150px">关键词</th><th style="width:150px">object</th><th style="width:180px">参数</th><th>说明</th><th style="width:110px">来源</th><th style="width:150px">操作</th></tr></thead>
+          <tbody id="keywordRows"></tbody>
+        </table>
+      </div>
+      <div class="hint" id="keywordFileHint">自定义关键词保存在当前项目的 keywords.json，随项目一起保存和打开。</div>
+      <div class="hint">预留软件类型只登记适配器接口；当前没有具体求解器实现，执行时会明确失败且不会伪造结果。</div>
+    </div>
+  </div>
+
+  <!-- ============ 文件浏览 ============ -->
+  <div id="page-files" class="page" style="display:none">
+    <div class="panel">
+      <div class="toolbar">
+        <h2 class="page">文件浏览</h2>
+        <span class="hint" id="filePath"></span>
+        <div class="spacer"></div>
+        <button onclick="navFiles(null)">返回根目录</button>
+        <button onclick="refreshFiles()">刷新</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="filelist">
+          <thead><tr><th>名称</th><th class="center" style="width:130px">类型</th><th class="center" style="width:130px">大小</th></tr></thead>
+          <tbody id="fileRows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 日志 ============ -->
+  <div id="page-log" class="page" style="display:none">
+    <div class="panel">
+      <div class="toolbar">
+        <h2 class="page">日志</h2>
+        <div class="spacer"></div>
+        <label><input type="checkbox" id="logAuto" checked onchange="toggleLogAuto()"> 自动刷新</label>
+        <button onclick="loadLogfile()">刷新</button>
+        <button class="danger" onclick="clearLogfile()">清空</button>
+      </div>
+      <div class="logbox" id="logView" style="height:calc(100vh - 205px);min-height:330px;max-height:760px"></div>
+    </div>
+  </div>
+
+  <!-- ============ 配置 ============ -->
+  <div id="page-config" class="page" style="display:none">
+    <div class="panel">
+      <div class="toolbar">
+        <div>
+          <h2 class="page">配置 config.yaml</h2>
+          <div class="hint" style="margin:3px 0 0">修改后点击保存，下一次运行任务时生效。</div>
+        </div>
+        <div class="spacer"></div>
+        <button onclick="loadConfig()">重置</button>
+        <button class="primary" onclick="saveConfig()">保存配置</button>
+      </div>
+      <div id="cfgRows" class="cfg-grid"></div>
+    </div>
+  </div>
+</div>
+</div>
+<div class="modal-backdrop" id="saveProjectModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="saveProjectTitle">
+    <form class="modal-form" id="saveProjectForm" onsubmit="saveProject(event)">
+      <div>
+        <h3 id="saveProjectTitle">保存项目</h3>
+        <p>保存项目名称和说明。项目目录与项目内测试文件不会被移动。</p>
+      </div>
+      <div class="modal-project-facts">
+        <span>被测软件</span><strong id="saveProjectSoftware">-</strong>
+        <span>项目目录</span><code id="saveProjectPath">-</code>
+      </div>
+      <label class="project-field">
+        <span>项目名称</span>
+        <input type="text" id="saveProjectName" maxlength="60" autocomplete="off" required>
+      </label>
+      <label class="project-field">
+        <span>项目说明（可选）</span>
+        <input type="text" id="saveProjectDescription" maxlength="200" autocomplete="off"
+          placeholder="用途、版本或负责人">
+      </label>
+      <div class="modal-actions">
+        <button type="button" onclick="closeSaveProject()">取消</button>
+        <button type="submit" class="primary" id="btnSaveProject">保存更改</button>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="modal-backdrop" id="deleteProjectModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="deleteProjectTitle">
+    <h3 id="deleteProjectTitle">删除项目</h3>
+    <p id="deleteProjectMessage">项目目录及其中的剧本、结果、输入卡、日志和运行现场将永久删除。此操作不能撤销。</p>
+    <label class="project-field">
+      <span>输入完整项目名称以确认</span>
+      <input type="text" id="deleteProjectConfirm" autocomplete="off" oninput="validateDeleteConfirm()">
+    </label>
+    <div class="modal-actions">
+      <button onclick="closeDeleteProject()">取消</button>
+      <button class="danger" id="btnDeleteProject" onclick="deleteProject()" disabled>永久删除</button>
+    </div>
+  </div>
+</div>
+<div class="modal-backdrop" id="softwareImportModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="softwareImportTitle">
+    <form class="modal-form" id="softwareImportForm" onsubmit="importSoftwareFile(event)">
+      <div>
+        <h3 id="softwareImportTitle">导入或更新软件</h3>
+        <p>程序所在文件夹中的 DLL、物性文件等依赖会一并复制；原有输入模板会保留。</p>
+      </div>
+      <div class="modal-project-facts">
+        <span>被测软件</span><strong id="softwareImportName">-</strong>
+        <span>程序文件</span><code id="softwareImportPath">-</code>
+      </div>
+      <label class="project-field">
+        <span>版本标记（可选）</span>
+        <input type="text" id="softwareImportVersion" maxlength="80" autocomplete="off"
+          placeholder="例如：3.3、2026.11">
+      </label>
+      <div class="modal-actions">
+        <button type="button" onclick="closeSoftwareImport()">取消</button>
+        <button type="submit" class="primary" id="btnSoftwareImport">开始导入</button>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="modal-backdrop" id="softwareCreateModal" hidden>
+  <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="softwareCreateTitle">
+    <form class="modal-form" id="softwareCreateForm" onsubmit="createSoftwareDefinition(event)">
+      <div>
+        <h3 id="softwareCreateTitle">新增被测软件</h3>
+        <p>先登记软件定义，再到软件库导入它的 .exe。框架按下面的命令行模板调用该软件，无需修改代码。</p>
+      </div>
+      <div class="modal-grid">
+        <label class="project-field">
+          <span>显示名称</span>
+          <input type="text" id="softwareCreateName" maxlength="60" autocomplete="off"
+            placeholder="例如：MY-SOLVER" required>
+        </label>
+        <label class="project-field">
+          <span>软件标识（英文，用作目录名）</span>
+          <input type="text" id="softwareCreateKey" maxlength="60" autocomplete="off"
+            placeholder="例如：my_solver" pattern="[a-z0-9][a-z0-9_\-]*" required>
+        </label>
+        <label class="project-field span-2">
+          <span>软件说明（可选）</span>
+          <input type="text" id="softwareCreateDescription" maxlength="200" autocomplete="off"
+            placeholder="软件用途、来源或负责人">
+        </label>
+        <label class="project-field span-2">
+          <span>输入卡文件名（每行一个，第一个为主输入卡，最多 12 个）</span>
+          <textarea id="softwareCreateInputs" rows="2" maxlength="800" spellcheck="false"
+            placeholder="case.inp&#10;table.dat" required>input.txt</textarea>
+          <small>多输入卡软件把辅助输入卡也写进来，运行前会自动放进运行目录；{input} 主输入卡 · {input1}/{input2} 第 N 张 · {inputs} 全部</small>
+        </label>
+        <label class="project-field span-2">
+          <span>默认运行依赖（可选，每行一个，支持相对路径和通配符）</span>
+          <textarea id="softwareCreateSupportFiles" rows="3" maxlength="4000" spellcheck="false"
+            placeholder="runtime/*.dll&#10;properties/tpfh2o"></textarea>
+          <small>folder_prep 默认整体复制软件库 bin；这里登记 bin 之外需要附加的运行依赖，剧本“附加依赖”可按用例覆盖。</small>
+        </label>
+        <label class="project-field">
+          <span>输出文件名</span>
+          <input type="text" id="softwareCreateOutput" maxlength="120" autocomplete="off"
+            value="output.txt" required>
+        </label>
+        <label class="project-field">
+          <span>版本标记（可选）</span>
+          <input type="text" id="softwareCreateVersion" maxlength="80" autocomplete="off"
+            placeholder="例如：2026.11">
+        </label>
+        <label class="project-field span-2">
+          <span>命令行参数模板</span>
+          <input type="text" id="softwareCreateArguments" maxlength="400" autocomplete="off"
+            value="{input} -o {output}" required>
+          <small>{input} 主输入卡 · {input1} {input2} 第 N 张输入卡 · {inputs} 全部输入卡 · {output} 输出 · {exe} 程序</small>
+        </label>
+        <label class="project-field">
+          <span>运行超时（秒）</span>
+          <input type="number" id="softwareCreateTimeout" min="1" max="86400" step="1" value="1800">
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" onclick="closeSoftwareCreate()">取消</button>
+        <button type="submit" class="primary" id="btnSoftwareCreate">登记软件</button>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="modal-backdrop" id="keywordEditorModal" hidden>
+  <div class="modal modal-xl" role="dialog" aria-modal="true" aria-labelledby="keywordEditorTitle">
+    <form class="modal-form" id="keywordEditorForm" onsubmit="saveKeyword(event)">
+      <div>
+        <h3 id="keywordEditorTitle">新增关键词</h3>
+        <p>自定义关键词用于适配其他被测软件：可以复用内置动作（只改字段标签与说明），
+          也可以用命令行模板直接调用新软件。保存后立即出现在剧本编辑器的动作下拉里。</p>
+      </div>
+      <div class="modal-grid">
+        <label class="project-field">
+          <span>关键词名称</span>
+          <input type="text" id="kwName" maxlength="40" autocomplete="off" required
+            pattern="[A-Za-z][A-Za-z0-9_]*" placeholder="例如：case_setup">
+          <small>英文字母开头，可含数字和下划线；剧本 action 列填这个名字。</small>
+        </label>
+        <label class="project-field">
+          <span>执行方式</span>
+          <select id="kwImpl" onchange="onKeywordImplChange()"></select>
+          <small>复用内置动作 = 别名；自定义命令行 = 按模板执行。</small>
+        </label>
+        <label class="project-field span-2" id="kwCommandField">
+          <span>命令模板</span>
+          <input type="text" id="kwCommand" maxlength="400" spellcheck="false"
+            placeholder="{exe} -i {p1} -o {p2}">
+          <small>占位符：{dir}/{run_dir} 运行目录 · {exe}/{object} 对象列 · {p1}~{p4} 参数 1~4；命令在运行目录下执行，返回码 0 视为成功。</small>
+        </label>
+        <label class="project-field">
+          <span>对象列标题</span>
+          <input type="text" id="kwObject" maxlength="40" autocomplete="off" placeholder="例如：可执行程序">
+        </label>
+        <label class="project-field">
+          <span>参数摘要</span>
+          <input type="text" id="kwParams" maxlength="120" autocomplete="off" placeholder="例如：输入卡, 输出文件名">
+        </label>
+        <label class="project-field span-2">
+          <span>说明</span>
+          <input type="text" id="kwDesc" maxlength="200" autocomplete="off" required
+            placeholder="一句话说明该关键词做什么、适用于哪款软件">
+        </label>
+      </div>
+      <div class="hint" style="margin:10px 0 6px">
+        字段定义：列 0 固定为运行目录，列 2 固定为对象列，其余列按顺序作为参数 1~4。
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr>
+            <th style="width:90px">列号</th>
+            <th style="width:130px">角色</th>
+            <th style="width:220px">标签</th>
+            <th>占位提示</th>
+            <th class="center" style="width:80px">必填</th>
+            <th class="center" style="width:80px"></th>
+          </tr></thead>
+          <tbody id="kwFieldRows"></tbody>
+        </table>
+      </div>
+      <div class="modal-actions">
+        <button type="button" onclick="addKeywordFieldRow()">＋ 添加字段</button>
+        <div class="spacer"></div>
+        <button type="button" onclick="closeKeywordEditor()">取消</button>
+        <button type="submit" class="primary">保存关键词</button>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="modal-backdrop" id="scriptWizardModal" hidden>
+  <div class="modal modal-xl" role="dialog" aria-modal="true" aria-labelledby="scriptWizardTitle">
+    <form class="modal-form" id="scriptWizardForm" onsubmit="createScriptFromWizard(event)">
+      <div>
+        <h3 id="scriptWizardTitle">新建测试剧本</h3>
+        <p>按模板批量生成用例：每个用例自动包含「准备运行目录 → 修改输入卡（可选）→ 运行被测软件 → 检查结果（可选）」，
+          一步到位，无需逐行手动填写。</p>
+      </div>
+      <div class="wiz-grid">
+        <label class="project-field span-2">
+          <span>剧本文件</span>
+          <input type="text" id="wizPath" value="data/test_data.xlsx" maxlength="200" required>
+          <small>保存到当前项目内，扩展名 .xlsx；同名文件需要勾选覆盖。</small>
+        </label>
+        <label class="project-field">
+          <span>用例前缀</span>
+          <input type="text" id="wizPrefix" value="TC" maxlength="20" required>
+        </label>
+        <label class="project-field">
+          <span>用例数量</span>
+          <input type="number" id="wizCount" value="3" min="1" max="60" step="1" required>
+        </label>
+        <label class="project-field">
+          <span>起始编号</span>
+          <input type="number" id="wizStart" value="1" min="1" max="9999" step="1">
+        </label>
+        <label class="project-field span-2">
+          <span>运行目录模板</span>
+          <input type="text" id="wizRunDir" value="test_cases/{case}" maxlength="200">
+          <small><code>{case}</code> 会替换成用例编号，例如 test_cases/TC-01。</small>
+        </label>
+        <label class="project-field">
+          <span>可执行程序</span>
+          <input type="text" id="wizExe" maxlength="120" required>
+        </label>
+        <label class="project-field">
+          <span>软件类型</span>
+          <select id="wizSoftware" onchange="onWizardSoftwareChanged()"></select>
+        </label>
+        <label class="project-field">
+          <span>主输入卡</span>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input type="text" id="wizInput" maxlength="160" list="wizInputOptions" required style="flex:1">
+            <button type="button" onclick="pickPath('wizInput','input',true)">浏览...</button>
+          </div>
+          <datalist id="wizInputOptions"></datalist>
+        </label>
+        <label class="project-field">
+          <span>输出文件/相对路径</span>
+          <input type="text" id="wizOutput" maxlength="120" required>
+        </label>
+        <label class="project-field">
+          <span>超时（秒）</span>
+          <input type="number" id="wizTimeout" min="1" max="86400" step="1" value="600">
+        </label>
+        <label class="project-field span-4" style="grid-template-columns:auto 1fr;align-items:center;display:flex;gap:8px">
+          <input type="checkbox" id="wizOverwrite" style="width:auto">
+          <span style="color:var(--fg);font-size:12px">同名剧本已存在时覆盖（会替换原有内容）</span>
+        </label>
+      </div>
+      <div class="wiz-section">
+        <div class="wiz-section-head">
+          <b>参数矩阵（可选）</b>
+          <span class="hint" style="margin:0">每行一个变量或检查项，各列对应一个用例；留空表示该用例不产生这一步。</span>
+        </div>
+        <div class="wiz-rows" id="wizRows"></div>
+        <div class="wiz-row-actions">
+          <button type="button" onclick="addWizardRow('modify')">＋ 修改输入卡变量</button>
+          <button type="button" onclick="addWizardRow('check')">＋ 结果检查项</button>
+        </div>
+      </div>
+      <div class="wiz-section">
+        <div class="wiz-section-head">
+          <b>生成预览</b>
+          <span class="hint" style="margin:0" id="wizPreviewHint">点击“预览步骤”查看每个用例将生成的步骤。</span>
+        </div>
+        <div class="wiz-preview" id="wizPreview">尚未预览。</div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" onclick="closeScriptWizard()">取消</button>
+        <button type="button" onclick="previewScriptWizard()">预览步骤</button>
+        <button type="submit" class="primary" id="btnWizardCreate">生成剧本</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+let PORT = "";
+let scriptCases = [];
+let filePath = null;
+let logAfter = 0;
+let lastOrderKey = "";
+let running = false;
+let logTimer = null;
+let activeTabId = "overview";
+let currentProject = null;
+let projectCatalog = [];
+let softwareCatalog = [];
+let softwareLibraryRoot = "";
+let pendingSoftwareImport = null;
+let pendingSaveProject = null;
+let pendingDeleteProject = null;
+const hasTauri = typeof window.__TAURI__ !== "undefined";
+
+const TABS = [
+  ["projects", "项目"], ["software", "软件库"], ["overview", "总览"], ["relap", "输入卡"],
+  ["script", "测试剧本"], ["run", "运行测试"], ["results", "测试结果"],
+  ["keywords", "关键词列表"], ["files", "文件浏览"], ["log", "日志"], ["config", "配置"],
+];
+
+async function invoke(cmd, args) {
+  if (!hasTauri) return null;
+  return window.__TAURI__.core.invoke(cmd, args || {});
+}
+async function api(path, opts) {
+  if (hasTauri) {
+    // Route through the Rust side: WebView2 fetch to 127.0.0.1 is unreliable
+    // in some environments, while the Rust process has no such restriction.
+    const method = (opts && opts.method) || "GET";
+    const body = (opts && opts.body) ? String(opts.body) : "";
+    const raw = await invoke("api_proxy", { path, method, body });
+    const data = JSON.parse(raw);
+    if (data && data.error) throw new Error(data.error);
+    return data;
+  }
+  const res = await fetch("http://127.0.0.1:" + PORT + path, opts);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || res.status);
+  return data;
+}
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function fmtSize(n) { if (n == null) return "-"; if (n < 1024) return n + " B"; if (n < 1048576) return (n/1024).toFixed(1) + " KB"; return (n/1048576).toFixed(1) + " MB"; }
+function warn(msg) { const w = document.getElementById("warn"); w.style.display = msg ? "block" : "none"; w.textContent = msg || ""; }
+function fmtDate(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("zh-CN", { hour12: false });
+}
+
+function setCurrentProject(project) {
+  currentProject = project || null;
+  const name = currentProject ? currentProject.name : "未选择项目";
+  const software = currentProject ? currentProject.software_name : "-";
+  const path = currentProject ? (currentProject.absolute_path || currentProject.path) : "-";
+  document.getElementById("ctxProjectName").textContent = name;
+  document.getElementById("ctxProjectName").title = name;
+  document.getElementById("ctxSoftware").textContent = software;
+  const pathEl = document.getElementById("ctxProjectPath");
+  pathEl.textContent = path;
+  pathEl.title = path;
+  const select = document.getElementById("projectSelect");
+  if (currentProject && [...select.options].some(o => o.value === currentProject.id)) {
+    select.value = currentProject.id;
+  }
+  const saveButton = document.getElementById("btnSaveCurrentProject");
+  saveButton.disabled = running || !currentProject || currentProject.legacy;
+  saveButton.title = currentProject && currentProject.legacy
+    ? "旧版工作区没有可保存的项目元数据"
+    : "";
+}
+
+function renderSoftwareCatalog() {
+  const host = document.getElementById("softwareLibraryRows");
+  const states = {
+    ready: { label: "程序就绪", className: "" },
+    missing_program: { label: "缺少程序", className: "warning" },
+    not_installed: { label: "未导入", className: "reserved" },
+    reserved: { label: "适配器预留", className: "reserved" },
+    invalid: { label: "清单异常", className: "invalid" },
+  };
+  if (host) {
+    host.innerHTML = softwareCatalog.length ? softwareCatalog.map(item => {
+      const state = states[item.state] || {
+        label: "状态未知",
+        className: "reserved",
+      };
+      const importButton = item.available
+        ? `<button data-software-key="${esc(item.key)}"
+             onclick="openSoftwareImport(this.dataset.softwareKey)"
+             ${running ? "disabled" : ""}>${item.program_ready ? "更新" : "导入"}</button>`
+        : `<span class="status-pill reserved">待实现</span>`;
+      const removeButton = item.user_defined
+        ? `<button class="danger" data-software-key="${esc(item.key)}"
+             onclick="deleteSoftware(this.dataset.softwareKey)"
+             ${running ? "disabled" : ""}>删除</button>`
+        : "";
+      const action = `<div class="row-actions">${importButton}${removeButton}</div>`;
+      const detail = item.manifest_error
+        || item.description
+        || "尚未配置软件说明";
+      const commandHint = item.user_defined && item.arguments && item.arguments.length
+        ? ` · 参数 ${item.arguments.join(" ")}`
+        : "";
+      const inputCards = Array.isArray(item.input_filenames) ? item.input_filenames : [];
+      const inputHint = inputCards.length
+        ? ` · 输入卡 ${inputCards.length} 个${inputCards.length > 1
+            ? `（${inputCards.join(" + ")}）`
+            : `（${inputCards[0]}）`}`
+        : "";
+      const supportFiles = Array.isArray(item.support_files) ? item.support_files : [];
+      const supportHint = supportFiles.length
+        ? ` · 默认依赖 ${supportFiles.length} 项`
+        : "";
+      const supportTitle = supportFiles.length
+        ? `默认依赖：${supportFiles.join(" / ")}`
+        : "";
+      const executable = item.executable_name
+        ? `程序文件：${item.executable_name}${inputHint}${supportHint}${commandHint}`
+        : (item.user_defined ? "尚未导入程序" : "尚未确定程序文件名");
+      const usage = `${Number(item.file_count || 0)} 个文件 · ${fmtSize(item.total_size || 0)}`;
+      return `<tr>
+        <td class="software-name-cell">
+          ${esc(item.display_name)}${item.user_defined
+            ? `<span class="software-tag">用户新增</span>`
+            : ""}
+          <small title="${esc(detail)}">${esc(detail)}</small>
+        </td>
+        <td><span class="status-pill ${item.available ? "current" : "reserved"}">
+          ${item.user_defined ? "用户软件" : (item.available ? "内置可用" : "预留")}
+        </span></td>
+        <td><span class="status-pill ${state.className}">${state.label}</span>
+          <small class="hint" style="display:block;margin:4px 0 0" title="${esc(supportTitle)}">${esc(executable)}</small>
+        </td>
+        <td class="software-version">${esc(item.version || "-")}</td>
+        <td>${Number(item.template_count || 0)}</td>
+        <td class="software-path" title="${esc(item.library_directory || "")}">
+          ${esc(item.library_directory || "-")}
+          <small>${esc(usage)}</small>
+        </td>
+        <td class="center software-actions">${action}</td>
+      </tr>`;
+    }).join("") : `<tr><td colspan="7" class="software-empty">尚未读取到软件适配器。</td></tr>`;
+  }
+
+  const libraryHint = document.getElementById("softwareLibraryHint");
+  if (libraryHint) {
+    const ready = softwareCatalog.filter(item => item.program_ready).length;
+    const available = softwareCatalog.filter(item => item.available).length;
+    const userCount = softwareCatalog.filter(item => item.user_defined).length;
+    const userPart = userCount ? ` · 用户新增 ${userCount} 个` : "";
+    libraryHint.textContent = softwareLibraryRoot
+      ? `软件库：${softwareLibraryRoot} · 已就绪 ${ready}/${available} 个可运行软件${userPart}`
+      : "被测程序、依赖文件和输入模板集中保存在软件库；项目只保留测试数据。";
+    libraryHint.title = softwareLibraryRoot;
+  }
+
+  const select = document.getElementById("newProjectSoftware");
+  if (select) {
+    const previous = select.value;
+    const available = softwareCatalog.filter(item => item.available);
+    const reserved = softwareCatalog.filter(item => !item.available);
+    const optionState = {
+      ready: "程序就绪",
+      missing_program: "缺少程序",
+      not_installed: "未导入程序",
+      invalid: "清单异常",
+    };
+    select.innerHTML = [
+      ...available.map(item => `<option value="${esc(item.key)}">${esc(item.display_name)} · ${esc(optionState[item.state] || "状态未知")}</option>`),
+      ...reserved.map(item => `<option value="${esc(item.key)}" disabled>${esc(item.display_name)} · 尚未实现</option>`),
+    ].join("");
+    if (previous && available.some(item => item.key === previous)) select.value = previous;
+  }
+}
+
+function renderProjectCatalog() {
+  const host = document.getElementById("projectRows");
+  const select = document.getElementById("projectSelect");
+  const currentId = currentProject ? currentProject.id : "";
+  if (host) host.innerHTML = projectCatalog.map(project => {
+    const isCurrent = project.id === currentId;
+    const programMissing = project.software_available && !project.software_program_ready;
+    const state = !project.software_available
+      ? { label: project.legacy ? "兼容工作区" : "适配器预留", className: "reserved" }
+      : programMissing
+        ? { label: "缺少程序", className: "warning" }
+        : project.legacy
+          ? { label: "兼容工作区", className: "" }
+          : isCurrent
+            ? { label: "当前项目", className: "current" }
+            : { label: "已就绪", className: "" };
+    const status = `<span class="status-pill ${state.className}">${state.label}</span>`;
+    const version = project.software_version
+      ? ` · ${esc(project.software_version)}`
+      : "";
+    const softwareStatus = `<span class="software-cell">${esc(project.software_name)}${version}
+      <small>${project.software_available
+        ? (programMissing ? "请先在软件库中导入有效程序" : "软件库程序可用")
+        : "当前适配器尚未实现"}</small>
+    </span>`;
+    const actions = [
+      isCurrent || project.legacy
+        ? ""
+        : `<button data-project-id="${esc(project.id)}" onclick="activateProject(this.dataset.projectId)">打开</button>`,
+      project.legacy
+        ? ""
+        : `<button data-project-id="${esc(project.id)}" onclick="openSaveProject(this.dataset.projectId)">保存</button>`,
+      isCurrent || project.legacy
+        ? ""
+        : `<button class="danger" data-project-id="${esc(project.id)}" onclick="openDeleteProject(this.dataset.projectId)">删除</button>`,
+    ].join("");
+    return `<tr>
+      <td class="project-name-cell">${esc(project.name)}
+        <small>${esc(project.description || (project.legacy ? "原 data、inputs、test_cases 和 log 数据" : "尚无项目说明"))}</small>
+      </td>
+      <td>${softwareStatus}</td>
+      <td class="path-cell" title="${esc(project.absolute_path || project.path)}">${esc(project.absolute_path || project.path)}</td>
+      <td>${esc(fmtDate(project.created_at))}</td>
+      <td>${status}</td>
+      <td><div class="row-actions">${actions || (isCurrent
+        ? `<span class="status-pill current">正在使用</span>`
+        : `<span class="status-pill reserved">顶部切换</span>`)}</div></td>
+    </tr>`;
+  }).join("");
+
+  if (select) {
+    select.innerHTML = projectCatalog
+      .map(project => `<option value="${esc(project.id)}">${esc(project.name)} · ${esc(project.software_name)}</option>`)
+      .join("");
+  }
+  setCurrentProject(currentProject);
+  const hasStandalone = projectCatalog.some(project => !project.legacy);
+  const empty = document.getElementById("projectEmpty");
+  if (empty) empty.style.display = hasStandalone ? "none" : "block";
+}
+
+async function loadProjectCatalog(silent = false) {
+  try {
+    const [projects, software] = await Promise.all([
+      api("/api/projects"),
+      api("/api/software"),
+    ]);
+    projectCatalog = projects.projects || [];
+    softwareCatalog = software.software || [];
+    softwareLibraryRoot =
+      software.library_root_absolute || software.library_root || "";
+    setCurrentProject(projects.current);
+    renderSoftwareCatalog();
+    renderProjectCatalog();
+    warn("");
+    return true;
+  } catch (e) {
+    if (!silent) warn("读取项目和软件失败: " + e.message);
+    return false;
+  }
+}
+
+async function refreshProjectCatalog() {
+  await loadProjectCatalog();
+}
+
+async function openSoftwareImport(softwareKey) {
+  const item = softwareCatalog.find(entry => entry.key === softwareKey);
+  if (!item) return;
+  if (!item.available) {
+    warn(`${item.display_name} 的适配器尚未实现，暂不能导入运行程序`);
+    return;
+  }
+  if (running) {
+    warn("任务运行期间不能导入或更新被测软件");
+    return;
+  }
+  if (!hasTauri) {
+    warn("当前不是桌面模式，无法打开系统程序选择器");
+    return;
+  }
+
+  let path = "";
+  try {
+    path = await invoke("pick_file", { kind: "exec" });
+  } catch (e) {
+    warn("选择软件程序失败: " + (e && e.message ? e.message : e));
+    return;
+  }
+  if (!path) return;
+
+  pendingSoftwareImport = { key: item.key, name: item.display_name, path };
+  document.getElementById("softwareImportName").textContent = item.display_name;
+  document.getElementById("softwareImportPath").textContent = path;
+  document.getElementById("softwareImportPath").title = path;
+  document.getElementById("softwareImportVersion").value = item.version || "";
+  document.getElementById("btnSoftwareImport").disabled = false;
+  document.getElementById("softwareImportModal").hidden = false;
+  setTimeout(() => document.getElementById("softwareImportVersion").focus(), 0);
+}
+
+function closeSoftwareImport() {
+  pendingSoftwareImport = null;
+  document.getElementById("softwareImportModal").hidden = true;
+  document.getElementById("softwareImportForm").reset();
+}
+
+async function importSoftwareFile(event) {
+  event.preventDefault();
+  if (!pendingSoftwareImport) return;
+  const pending = pendingSoftwareImport;
+  const button = document.getElementById("btnSoftwareImport");
+  const version = document.getElementById("softwareImportVersion").value.trim();
+  button.disabled = true;
+  button.textContent = "正在导入...";
+  try {
+    await api("/api/software/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        software_key: pending.key,
+        path: pending.path,
+        version,
+      }),
+    });
+    closeSoftwareImport();
+    await loadProjectCatalog();
+    const hint = document.getElementById("softwareLibraryHint");
+    if (hint) {
+      hint.textContent = `${pending.name} 已更新到软件库；后续新建或运行项目会使用该程序。`;
+    }
+    warn("");
+  } catch (e) {
+    warn("导入软件失败: " + e.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = "开始导入";
+  }
+}
+
+function openSoftwareCreate() {
+  if (running) {
+    warn("任务运行期间不能新增被测软件");
+    return;
+  }
+  const form = document.getElementById("softwareCreateForm");
+  form.reset();
+  document.getElementById("softwareCreateInputs").value = "input.txt";
+  document.getElementById("softwareCreateSupportFiles").value = "";
+  document.getElementById("softwareCreateOutput").value = "output.txt";
+  document.getElementById("softwareCreateArguments").value = "{input} -o {output}";
+  document.getElementById("softwareCreateTimeout").value = "1800";
+  const button = document.getElementById("btnSoftwareCreate");
+  button.disabled = false;
+  button.textContent = "登记软件";
+  document.getElementById("softwareCreateModal").hidden = false;
+  setTimeout(() => document.getElementById("softwareCreateName").focus(), 0);
+}
+
+function closeSoftwareCreate() {
+  document.getElementById("softwareCreateModal").hidden = true;
+  document.getElementById("softwareCreateForm").reset();
+}
+
+async function createSoftwareDefinition(event) {
+  event.preventDefault();
+  const inputCards = document
+    .getElementById("softwareCreateInputs")
+    .value.split(/[\n,;、]+/)
+    .map(name => name.trim())
+    .filter(Boolean);
+  const supportFiles = document
+    .getElementById("softwareCreateSupportFiles")
+    .value.split(/[\n,;、]+/)
+    .map(name => name.trim())
+    .filter(Boolean);
+  const payload = {
+    display_name: document.getElementById("softwareCreateName").value.trim(),
+    software_key: document.getElementById("softwareCreateKey").value.trim().toLowerCase(),
+    description: document.getElementById("softwareCreateDescription").value.trim(),
+    version: document.getElementById("softwareCreateVersion").value.trim(),
+    input_filenames: inputCards,
+    support_files: supportFiles,
+    input_filename: inputCards[0] || "input.txt",
+    output_filename: document.getElementById("softwareCreateOutput").value.trim(),
+    arguments: document.getElementById("softwareCreateArguments").value.trim(),
+    timeout_sec: document.getElementById("softwareCreateTimeout").value.trim() || "1800",
+  };
+  if (!payload.display_name) {
+    warn("请填写软件显示名称");
+    return;
+  }
+  if (!/^[a-z0-9][a-z0-9_-]*$/.test(payload.software_key)) {
+    warn("软件标识只能使用小写字母、数字、下划线和连字符，且必须以字母或数字开头");
+    return;
+  }
+  if (!inputCards.length) {
+    warn("请至少填写一个输入卡文件名");
+    return;
+  }
+  if (inputCards.length > 12) {
+    warn("输入卡最多 12 个，请精简后再登记");
+    return;
+  }
+  if (supportFiles.length > 64) {
+    warn("默认运行依赖最多 64 项，请精简后再登记");
+    return;
+  }
+  if (softwareCatalog.some(item => item.key === payload.software_key)) {
+    warn(`软件标识 ${payload.software_key} 已被占用，请更换`);
+    return;
+  }
+  if (!payload.arguments) {
+    warn("请填写命令行参数模板，例如 {input} -o {output}");
+    return;
+  }
+  const button = document.getElementById("btnSoftwareCreate");
+  button.disabled = true;
+  button.textContent = "正在登记...";
+  try {
+    await api("/api/software/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    closeSoftwareCreate();
+    await loadProjectCatalog();
+    const hint = document.getElementById("softwareLibraryHint");
+    if (hint) {
+      hint.textContent =
+        `${payload.display_name} 已登记。下一步请在软件库中点击“导入”，选择它的 .exe 程序。`;
+    }
+    warn("");
+  } catch (e) {
+    warn("新增软件失败: " + e.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = "登记软件";
+  }
+}
+
+async function deleteSoftware(softwareKey) {
+  const item = softwareCatalog.find(entry => entry.key === softwareKey);
+  if (!item) return;
+  if (running) {
+    warn("任务运行期间不能删除被测软件");
+    return;
+  }
+  const confirmed = window.confirm(
+    `删除用户新增的软件「${item.display_name}」？\n`
+    + "软件库中的程序文件和定义会一并删除，已创建的项目目录不受影响。"
+  );
+  if (!confirmed) return;
+  try {
+    await api("/api/software/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ software_key: item.key }),
+    });
+    await loadProjectCatalog();
+    warn("");
+  } catch (e) {
+    warn("删除软件失败: " + e.message);
+  }
+}
+
+async function openSoftwareLibrary() {
+  if (!hasTauri) {
+    warn("当前不是桌面模式，无法打开系统文件夹");
+    return;
+  }
+  if (!softwareLibraryRoot) {
+    warn("尚未取得软件库路径，请刷新后重试");
+    return;
+  }
+  try {
+    await invoke("open_software_library", { path: softwareLibraryRoot });
+  } catch (e) {
+    warn("打开软件库失败: " + (e && e.message ? e.message : e));
+  }
+}
+
+function openProjects(showCreate = false) {
+  switchTab("projects");
+  if (showCreate) toggleCreateProject(true);
+}
+
+function toggleCreateProject(force) {
+  const panel = document.getElementById("projectCreatePanel");
+  const open = typeof force === "boolean" ? force : !panel.classList.contains("open");
+  panel.classList.toggle("open", open);
+  document.getElementById("btnCreateProject").disabled = false;
+  if (open) {
+    if (!document.getElementById("newProjectSoftware").options.length) renderSoftwareCatalog();
+    setTimeout(() => document.getElementById("newProjectName").focus(), 0);
+  }
+}
+
+async function openProject() {
+  if (!hasTauri) {
+    warn("当前不是桌面模式，无法打开系统项目选择器");
+    return;
+  }
+  let path = "";
+  try {
+    path = await invoke("pick_project_manifest");
+  } catch (e) {
+    warn("选择项目文件失败: " + (e && e.message ? e.message : e));
+    return;
+  }
+  if (!path) return;
+
+  const button = document.getElementById("btnOpenProject");
+  button.disabled = true;
+  button.textContent = "正在打开...";
+  try {
+    const data = await api("/api/projects/open", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path }),
+    });
+    setCurrentProject(data.current);
+    resetProjectViews();
+    await loadProjectCatalog();
+    await reloadActiveProjectData();
+    warn("");
+  } catch (e) {
+    warn("打开项目失败: " + e.message);
+  } finally {
+    button.disabled = running;
+    button.textContent = "打开项目";
+  }
+}
+
+function openSaveProject(projectId) {
+  const project = projectId
+    ? projectCatalog.find(item => item.id === projectId)
+    : currentProject;
+  if (!project) return;
+  if (project.legacy) {
+    warn("旧版工作区没有可保存的项目元数据");
+    return;
+  }
+  if (running) {
+    warn("任务运行期间不能保存项目");
+    return;
+  }
+  pendingSaveProject = project;
+  document.getElementById("saveProjectSoftware").textContent = project.software_name || "-";
+  document.getElementById("saveProjectPath").textContent =
+    project.absolute_path || project.path || "-";
+  document.getElementById("saveProjectName").value = project.name || "";
+  document.getElementById("saveProjectDescription").value = project.description || "";
+  document.getElementById("saveProjectModal").hidden = false;
+  setTimeout(() => {
+    const input = document.getElementById("saveProjectName");
+    input.focus();
+    input.select();
+  }, 0);
+}
+
+function closeSaveProject() {
+  pendingSaveProject = null;
+  document.getElementById("saveProjectModal").hidden = true;
+}
+
+async function saveProject(event) {
+  event.preventDefault();
+  if (!pendingSaveProject) return;
+  const project = pendingSaveProject;
+  const name = document.getElementById("saveProjectName").value.trim();
+  const description = document.getElementById("saveProjectDescription").value.trim();
+  if (!name) {
+    warn("项目名称不能为空");
+    return;
+  }
+
+  const button = document.getElementById("btnSaveProject");
+  button.disabled = true;
+  button.textContent = "正在保存...";
+  try {
+    await api("/api/projects/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        project_id: project.id,
+        name,
+        description,
+      }),
+    });
+    closeSaveProject();
+    await loadProjectCatalog();
+    warn("");
+  } catch (e) {
+    warn("保存项目失败: " + e.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = "保存更改";
+  }
+}
+
+function resetProjectViews() {
+  scriptCases = [];
+  filePath = null;
+  logAfter = 0;
+  lastOrderKey = "";
+  document.getElementById("scriptEditor").innerHTML = "";
+  const resultsTable = document.getElementById("resultsTable");
+  if (resultsTable) {
+    const tbody = ensureResultsTableBody();
+    if (tbody) tbody.innerHTML = "";
+    resultsTable.dataset.loaded = "";
+  }
+  document.getElementById("fileRows").innerHTML = "";
+  document.getElementById("filePath").textContent = "";
+  document.getElementById("runCases").innerHTML = `<tr><td colspan="3" class="center status-wait empty-state">尚未加载</td></tr>`;
+  document.getElementById("runLog").textContent = "";
+  document.getElementById("logView").textContent = "";
+  document.getElementById("relapInputRows").innerHTML = "";
+  document.getElementById("relapTableWrap").style.display = "none";
+  document.getElementById("relapTableWrap").dataset.loaded = "";
+  document.getElementById("relapInputSummaryDetail").classList.remove("show");
+  document.getElementById("relapInputSummary").textContent = "尚未解析输入卡。选择文件或粘贴内容后开始。";
+  document.getElementById("relapInputPath").value = "inputs\\CheckSGInput.txt";
+}
+
+async function reloadActiveProjectData() {
+  await loadConfig();
+  if (activeTabId === "overview") await refreshOverview();
+  if (activeTabId === "files") await refreshFiles();
+  if (activeTabId === "log") await loadLogfile();
+  if (activeTabId === "results") await loadResults();
+}
+
+async function activateProject(projectId) {
+  if (!projectId || (currentProject && projectId === currentProject.id)) return;
+  try {
+    const data = await api("/api/projects/activate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_id: projectId }),
+    });
+    setCurrentProject(data.current);
+    resetProjectViews();
+    await loadProjectCatalog();
+    await reloadActiveProjectData();
+    warn("");
+  } catch (e) {
+    setCurrentProject(currentProject);
+    warn("切换项目失败: " + e.message);
+  }
+}
+
+async function createProject(event) {
+  event.preventDefault();
+  const button = document.getElementById("btnCreateProject");
+  const payload = {
+    name: document.getElementById("newProjectName").value.trim(),
+    software_key: document.getElementById("newProjectSoftware").value,
+    description: document.getElementById("newProjectDescription").value.trim(),
+  };
+  if (!payload.name || !payload.software_key) {
+    warn("请填写项目名称并选择被测软件");
+    return;
+  }
+  button.disabled = true;
+  button.textContent = "正在创建...";
+  try {
+    const data = await api("/api/projects/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    setCurrentProject(data.current);
+    resetProjectViews();
+    document.getElementById("createProjectForm").reset();
+    toggleCreateProject(false);
+    await loadProjectCatalog();
+    await reloadActiveProjectData();
+    warn("");
+  } catch (e) {
+    warn("创建项目失败: " + e.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = "创建项目";
+  }
+}
+
+function openDeleteProject(projectId) {
+  pendingDeleteProject = projectCatalog.find(project => project.id === projectId) || null;
+  if (!pendingDeleteProject) return;
+  document.getElementById("deleteProjectMessage").textContent =
+    `项目“${pendingDeleteProject.name}”中的剧本、结果、输入卡、日志和运行现场将永久删除。此操作不能撤销。`;
+  document.getElementById("deleteProjectConfirm").value = "";
+  document.getElementById("btnDeleteProject").disabled = true;
+  document.getElementById("deleteProjectModal").hidden = false;
+  setTimeout(() => document.getElementById("deleteProjectConfirm").focus(), 0);
+}
+
+function validateDeleteConfirm() {
+  const entered = document.getElementById("deleteProjectConfirm").value.trim();
+  document.getElementById("btnDeleteProject").disabled =
+    !pendingDeleteProject || entered !== pendingDeleteProject.name;
+}
+
+function closeDeleteProject() {
+  pendingDeleteProject = null;
+  document.getElementById("deleteProjectModal").hidden = true;
+}
+
+async function deleteProject() {
+  if (!pendingDeleteProject) return;
+  const project = pendingDeleteProject;
+  const button = document.getElementById("btnDeleteProject");
+  button.disabled = true;
+  button.textContent = "正在删除...";
+  try {
+    const data = await api("/api/projects/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_id: project.id, confirm_name: project.name }),
+    });
+    closeDeleteProject();
+    setCurrentProject(data.current);
+    resetProjectViews();
+    await loadProjectCatalog();
+    await reloadActiveProjectData();
+    switchTab("projects");
+    warn("");
+  } catch (e) {
+    warn("删除项目失败: " + e.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = "永久删除";
+    validateDeleteConfirm();
+  }
+}
+
+function switchTab(id) {
+  activeTabId = id;
+  for (const [key] of TABS) document.getElementById("page-" + key).style.display = key === id ? "" : "none";
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.id === id));
+  if (id === "projects" || id === "software") refreshProjectCatalog();
+  if (id === "relap" && document.getElementById("relapInputPath").value.trim() && !document.getElementById("relapTableWrap").dataset.loaded) loadRelapInput();
+  if (id === "overview") refreshOverview();
+  if (id === "files") refreshFiles();
+  if (id === "log") { loadLogfile(); toggleLogAuto(); }
+  if (id === "keywords") loadKeywords();
+  if (id === "results" && !document.getElementById("resultsTable").dataset.loaded) loadResults();
+  if (id === "config") loadConfig();
+  if (id === "script") { refreshScriptPicker(); ensureWizardDefaults(); }
+}
+
+async function projectRelativePath(path, requireInput) {
+  return api("/api/path/project-relative", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path, require_input: !!requireInput }),
+  });
+}
+
+async function pickPath(targetId, kind, requireInput) {
+  const el = document.getElementById(targetId);
+  if (!el) {
+    warn("界面配置错误：找不到文件输入框 " + targetId);
+    return;
+  }
+  try {
+    if (!hasTauri) {
+      warn("当前不是桌面模式，无法打开系统文件选择器");
+      return;
+    }
+    const picked = await invoke("pick_file", { kind: kind || "script" });
+    if (!picked) return;
+    if (targetId === "runExe") {
+      el.value = picked;
+      return;
+    }
+    const relative = await projectRelativePath(picked, requireInput);
+    const value = targetId === "wizInput" ? relative.input_path : relative.path;
+    if (!value) throw new Error("主输入卡必须选择当前项目 inputs 目录中的文件");
+    el.value = value;
+    if (targetId === "scriptPath") await loadScript(value);
+    else if (targetId === "runScript") await loadRunCases(value);
+    else if (targetId === "runCheck") await loadResultsForRun(value);
+    else if (targetId === "resultsPath") await loadResults(value);
+    else if (targetId === "relapInputPath") await loadRelapInput(value);
+    else if (targetId === "relapOutputPath") await loadRelapOutput(value);
+  } catch (e) {
+    warn("选择文件失败: " + (e && e.message ? e.message : e));
+  }
+}
+
+function setSelectValue(el, value) {
+  if (!el) return;
+  el.value = value;
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+  el.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+async function loadRunCases(path) {
+  const p = path || document.getElementById("runScript").value.trim();
+  if (!p) { warn("请先选择测试剧本"); return; }
+  try {
+    const data = await api("/api/script?path=" + encodeURIComponent(p));
+    const normalized = data.path || p;
+    setSelectValue(document.getElementById("runScript"), normalized);
+    const scriptInput = document.getElementById("scriptPath");
+    if (scriptInput) scriptInput.value = normalized;
+    const cases = data.cases || [];
+    const total = cases.reduce((n, c) => n + (c.rows || []).length, 0);
+    document.getElementById("runSummary").textContent = `已加载 ${cases.length} 个用例 / ${total} 个步骤`;
+    if (document.getElementById("runLog")) {
+      document.getElementById("runLog").textContent =
+        `剧本已加载：${normalized}\n` + cases.map(c => `  ${c.no}（${(c.rows || []).length} 步）`).join("\n") + "\n";
+    }
+    warn("");
+  } catch (e) {
+    warn("加载剧本失败: " + (e && e.message ? e.message : e));
+  }
+}
+
+async function loadResultsForRun(path) {
+  const p = path || document.getElementById("runCheck").value.trim();
+  if (!p) { warn("请先选择结果表"); return; }
+  try {
+    const data = await api("/api/results?path=" + encodeURIComponent(p));
+    const normalized = data.path || p;
+    setSelectValue(document.getElementById("runCheck"), normalized);
+    const resultsInput = document.getElementById("resultsPath");
+    if (resultsInput) {
+      resultsInput.value = normalized;
+      document.getElementById("resultsTable").dataset.loaded = "";
+      await loadResults(normalized);
+    }
+    const rows = Math.max(0, (data.rows || []).length - 1);
+    warn("");
+    document.getElementById("runSummary").textContent = `结果表已就绪：${rows} 行`;
+  } catch (e) {
+    warn("加载结果表失败: " + (e && e.message ? e.message : e));
+  }
+}
+
+async function loadSmokeExample() {
+  try {
+    setSelectValue(document.getElementById("runScript"), "data/examples/test_data_smoke.xlsx");
+    setSelectValue(document.getElementById("runCheck"), "data/examples/test_check_smoke.xlsx");
+    document.querySelector('input[name=mode][value=simulate]').checked = true;
+    document.getElementById("runSummary").textContent = "已载入冒烟示例，点击开始执行";
+    warn("");
+    await loadRunCases("data/examples/test_data_smoke.xlsx");
+    await loadResultsForRun("data/examples/test_check_smoke.xlsx");
+  } catch (e) {
+    warn("载入冒烟示例失败: " + (e && e.message ? e.message : e));
+  }
+}
+/* ---------------- 总览 ---------------- */
+async function refreshOverview() {
+  try {
+    const cfg = await api("/api/config");
+    document.getElementById("ov-mode").textContent = cfg.config.runMode === "real" ? "真实运行" : "模拟运行";
+    document.getElementById("ov-script").textContent = cfg.config.dataConfigPath || "-";
+    const c = await api("/api/cases?script=" + encodeURIComponent(cfg.config.dataConfigPath || ""));
+    document.getElementById("ov-cases").textContent = (c.cases || []).length;
+    const st = await api("/api/status");
+    const el = document.getElementById("ov-last");
+    if (st.summary) {
+      const passed = Object.values(st.summary).filter(Boolean).length;
+      el.textContent = passed + "/" + Object.keys(st.summary).length;
+    } else el.textContent = st.running ? "运行中" : "-";
+  } catch (e) { warn("加载总览失败: " + e.message); }
+}
+
+let relapEntries = [];
+let relapSummary = null;
+
+/* ---------------- 输入卡 ---------------- */
+async function loadRelapInput(path) {
+  const p = path || document.getElementById("relapInputPath").value.trim();
+  if (!p) { warn("请先选择或输入参数卡片文件"); return; }
+  try {
+    warn("");
+    document.getElementById("relapInputPath").value = p;
+    const inputFormat = document.getElementById("relapInputFormat").value;
+    const params = new URLSearchParams({ path: p });
+    if (inputFormat) params.set("format", inputFormat);
+    const data = await api("/api/input?" + params.toString());
+    renderRelapResult(data);
+  } catch (e) {
+    warn("解析输入卡失败: " + (e && e.message ? e.message : e));
+  }
+}
+
+async function parseRelapText() {
+  const text = document.getElementById("relapInputText").value;
+  if (!text.trim()) { warn("请先粘贴输入卡内容"); return; }
+  const filename = document.getElementById("relapPasteFilename").value.trim() || "pasted.txt";
+  const format = document.getElementById("relapInputFormat").value;
+  try {
+    warn("");
+    const data = await api("/api/input/parse", { method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, filename, format }) });
+    renderRelapResult(data);
+  } catch (e) {
+    warn("解析粘贴内容失败: " + (e && e.message ? e.message : e));
+  }
+}
+
+function clearRelapText() {
+  document.getElementById("relapInputText").value = "";
+  document.getElementById("relapPasteFilename").value = "pasted.txt";
+  warn("");
+}
+
+function relapFormatLabel(value) {
+  return ({
+    "fixed-width": "固定列 / 标准卡",
+    "free-format": "自由格式",
+    "positional-text": "位置型值 + 说明",
+    "mixed": "混合格式",
+    "unknown": "未识别",
+  })[value] || (value || "未识别");
+}
+
+function relapKindLabel(row) {
+  if (row.kind === "card") return row.format === "fixed-width" ? "卡片 · 固定列" : "卡片 · 自由格式";
+  if (row.kind === "record") return "位置型参数记录";
+  if (row.kind === "blank") return "空行";
+  if (row.kind === "continuation") return "续行";
+  if (row.kind === "comment") return "注释";
+  if (row.kind === "directive") return "指令";
+  if (row.kind === "title") return "标题";
+  return "未识别行";
+}
+
+function relapFeature(label, enabled) {
+  return `<span class="relap-feature ${enabled ? "ok" : ""}">${enabled ? "✓" : "·"} ${esc(label)}</span>`;
+}
+
+function renderRelapResult(data) {
+  if (data && data.error) throw new Error(data.error);
+  relapSummary = data.summary || {};
+  relapEntries = data.entries || [];
+  const s = relapSummary;
+  const panel = document.getElementById("relapInputSummaryDetail");
+  const warnings = s.warnings || [];
+  const categories = s.categories || {};
+  const isPositional = s.profile === "positional_text";
+  const categoryOptions = Object.keys(categories).map(name =>
+    `<option value="${esc(name)}">${esc(name)} (${categories[name]})</option>`).join("");
+  panel.innerHTML = `
+    <div class="relap-meta">
+      <b>${esc(s.filename || "-")}</b>${s.path ? ` · ${esc(s.path)}` : ""}<br>
+      编码 <b>${esc(s.encoding || "-")}</b> · 换行 <b>${esc(s.newline || "-")}</b> · 格式 <b>${esc(relapFormatLabel(s.format))}</b>
+      · 总行数 <b>${s.total_lines ?? 0}</b> · 非空行 <b>${s.nonempty_lines ?? 0}</b><br>
+      ${isPositional
+        ? `参数记录 <b>${s.total_records ?? 0}</b> · 字段 <b>${s.record_fields ?? 0}</b> · 数值字段 <b>${s.numeric_fields ?? 0}</b> · 说明列 <b>${s.description_column ?? "-"}</b>`
+        : `卡片 <b>${s.total_cards ?? 0}</b> · 唯一卡号 <b>${s.unique_cards ?? 0}</b> · 续行 <b>${s.continuation_lines ?? 0}</b> · 注释 <b>${s.comment_lines ?? 0}</b>`}
+      · 未识别 <b>${s.unparsed_lines ?? 0}</b>
+      ${s.title ? `<br>标题 <b>${esc(s.title)}</b>` : ""}
+    </div>
+    <div class="relap-features">
+      ${isPositional
+        ? `${relapFeature("参数记录", (s.total_records ?? 0) > 0)}${relapFeature("多值字段", (s.record_fields ?? 0) > (s.total_records ?? 0))}${relapFeature("说明列", (s.description_column ?? 0) > 0)}`
+        : `${relapFeature("结束卡", s.has_end_card)}${relapFeature("时间控制", s.has_time_control)}${relapFeature("水力学组件", s.has_hydrodynamic)}${relapFeature("热构件", s.has_heat_structure)}`}
+    </div>
+    ${warnings.length ? `<div class="relap-warnings"><b>解析提示</b><ul>${warnings.map(w => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
+  `;
+  document.getElementById("relapInputSummary").style.display = "none";
+  panel.classList.add("show");
+  document.getElementById("relapFilterBar").style.display = "";
+  document.getElementById("relapTableWrap").style.display = "";
+  document.getElementById("relapTableWrap").dataset.loaded = "1";
+  document.getElementById("relapFileName").textContent = s.filename || "";
+  const select = document.getElementById("relapCategoryFilter");
+  select.innerHTML = `<option value="">全部分类</option>${categoryOptions}`;
+  document.getElementById("relapSearch").value = "";
+  renderRelapRows();
+}
+
+function renderRelapRows() {
+  const tbody = document.getElementById("relapInputRows");
+  if (!tbody) return;
+  const query = (document.getElementById("relapSearch").value || "").trim().toLowerCase();
+  const category = document.getElementById("relapCategoryFilter").value;
+  const rows = relapEntries.filter(row => {
+    if (category && row.category !== category) return false;
+    if (!query) return true;
+    const haystack = [
+      row.line_no, row.card_id, row.record_id, row.category, row.keyword,
+      row.description, row.comment, row.raw,
+      ...(row.fields || []),
+    ].join(" ").toLowerCase();
+    return haystack.includes(query);
+  });
+  tbody.innerHTML = rows.length ? rows.map(row => {
+    const rowClass = "row-" + row.kind;
+    const id = row.card_id || row.record_id ? esc(row.card_id || row.record_id) : "-";
+    const fields = (row.fields || []).length
+      ? row.fields.map((field, index) => {
+        const target = row.field_targets && row.field_targets[index] ? row.field_targets[index].target : "";
+        return `<span class="relap-pill" title="${esc(`字段 ${index + 1}: ${field}${target ? ` · ${target}` : ""}`)}">${esc(field)}</span>`;
+      }).join(" ")
+      : "<span style=\"color:#9aa8b8\">-</span>";
+    return `<tr class="${rowClass}">
+      <td>${row.line_no}${row.external_line ? `<div class="relap-kind">原行 ${esc(row.external_line)}</div>` : ""}</td>
+      <td><b>${id}</b><div class="relap-kind">${esc(relapKindLabel(row))}</div></td>
+      <td>${row.category ? `<span class="relap-pill">${esc(row.category)}</span>` : "-"}</td>
+      <td>${row.keyword ? `<b>${esc(row.keyword)}</b>` : "-"}</td>
+      <td class="fields-cell">${fields}</td>
+      <td>${row.comment ? esc(row.comment) : "-"}</td>
+      <td class="raw-cell">${esc(row.raw)}</td>
+    </tr>`;
+  }).join("") : `<tr><td colspan="7" class="empty-state">没有符合条件的行</td></tr>`;
+  document.getElementById("relapRowCount").textContent = relapSummary && relapSummary.total_records
+    ? `${relapSummary.total_records} 条记录 · ${relapEntries.length} 行`
+    : `${relapEntries.length} 行`;
+  document.getElementById("relapFilterCount").textContent = `显示 ${rows.length} / ${relapEntries.length} 行`;
+}
+
+function relapSummaryLine(s, errors, lines) {
+  return [
+    `路径: ${s.path || "-"}`,
+    `输入处理成功: ${s.input_success ? "是" : "否"}`,
+    `输入数据列表: ${s.has_input_listing ? "有" : "无"}`,
+    `Major edit: ${s.major_edit_count || 0}`,
+    `水力学编辑: ${s.has_hydrodynamic_edit ? "有" : "无"}`,
+    `热构件编辑: ${s.has_heat_structure_edit ? "有" : "无"}`,
+    `错误行: ${s.error_count || 0} · 已显示 ${lines.length} 行`,
+  ].join(" · ") + (errors.length ? "\n\n错误摘要:\n" + errors.join("\n") : "");
+}
+
+async function loadRelapOutput(path) {
+  const p = path || document.getElementById("relapOutputPath").value.trim();
+  if (!p) { warn("请先选择或输入 RELAP5 输出文件"); return; }
+  try {
+    warn("");
+    document.getElementById("relapOutputPath").value = p;
+    const data = await api("/api/relap/output?path=" + encodeURIComponent(p) + "&lines=2000");
+    document.getElementById("relapOutputSummary").textContent =
+      relapSummaryLine(data.summary || {}, data.errors || [], data.lines || []);
+    document.getElementById("relapOutputView").textContent = (data.lines || []).join("\n");
+  } catch (e) {
+    warn("解析输出文件失败: " + (e && e.message ? e.message : e));
+  }
+}
+/* ---------------- 测试剧本向导 ---------------- */
+const ACTION_LABELS = {
+  folder_prep: "建目录·拷输入卡/依赖",
+  modify_inp: "改输入卡变量",
+  run: "运行程序（通用）",
+  run_relap5: "运行 RELAP5",
+  run_software: "运行被测软件",
+  check_output: "检查输出结果",
+  run_code: "执行命令行",
+  check: "占位检查",
+};
+let wizardDefaults = null;
+let wizardRows = [];
+let wizardHits = {};
+
+async function ensureWizardDefaults() {
+  if (wizardDefaults) return wizardDefaults;
+  try {
+    wizardDefaults = await api("/api/script/wizard");
+  } catch (e) {
+    wizardDefaults = null;
+  }
+  return wizardDefaults;
+}
+
+function wizardCount() {
+  const value = parseInt(document.getElementById("wizCount").value || "0", 10);
+  if (!Number.isFinite(value) || value < 1) return 0;
+  return Math.min(value, 60);
+}
+
+function wizardCaseNames() {
+  const count = wizardCount();
+  if (!count) return [];
+  const prefix = document.getElementById("wizPrefix").value.trim() || "TC";
+  const start = Math.max(1, parseInt(document.getElementById("wizStart").value || "1", 10) || 1);
+  const width = Math.max(2, String(start + count - 1).length);
+  return Array.from({ length: count }, (_, i) => `${prefix}-${String(start + i).padStart(width, "0")}`);
+}
+
+function fillWizardInputOptions(names) {
+  const list = document.getElementById("wizInputOptions");
+  if (!list) return;
+  list.innerHTML = (names || []).map(name => `<option value="${esc(name)}"></option>`).join("");
+}
+
+async function openScriptWizard() {
+  const data = await ensureWizardDefaults();
+  if (!data) { warn("无法加载剧本向导默认值，请确认后端已启动"); return; }
+  const select = document.getElementById("wizSoftware");
+  const options = (data.software_options || []).filter(item => item.available);
+  select.innerHTML = options
+    .map(item => `<option value="${esc(item.key)}">${esc(item.display_name)}（${esc(item.key)}）</option>`)
+    .join("");
+  if (!options.length) {
+    select.innerHTML = `<option value="${esc(data.software_key || "")}">${esc(data.software_name || "当前软件")}</option>`;
+  }
+  setSelectValue(select, data.software_key || "");
+  document.getElementById("wizPath").value = data.script_path || "data/test_data.xlsx";
+  document.getElementById("wizPrefix").value = data.prefix || "TC";
+  document.getElementById("wizCount").value = data.count || 3;
+  document.getElementById("wizStart").value = data.start || 1;
+  document.getElementById("wizRunDir").value = data.run_dir_template || "test_cases/{case}";
+  document.getElementById("wizExe").value = data.executable || "";
+  document.getElementById("wizInput").value = data.input_card || "input.txt";
+  document.getElementById("wizOutput").value = data.output || "output.txt";
+  document.getElementById("wizTimeout").value = data.timeout || 600;
+  document.getElementById("wizOverwrite").checked = false;
+  fillWizardInputOptions(data.inputs || []);
+  wizardRows = [];
+  wizardHits = {};
+  document.getElementById("wizPreview").textContent = "尚未预览。";
+  document.getElementById("wizPreviewHint").textContent = "点击“预览步骤”查看每个用例将生成的步骤。";
+  renderWizardRows();
+  document.getElementById("scriptWizardModal").hidden = false;
+}
+
+function closeScriptWizard() {
+  document.getElementById("scriptWizardModal").hidden = true;
+}
+
+function onWizardSoftwareChanged() {
+  const key = document.getElementById("wizSoftware").value;
+  const option = ((wizardDefaults && wizardDefaults.software_options) || [])
+    .find(item => item.key === key);
+  if (!option) return;
+  if (option.executable) document.getElementById("wizExe").value = option.executable;
+  if (option.input_card) document.getElementById("wizInput").value = option.input_card;
+  if (option.output) document.getElementById("wizOutput").value = option.output;
+}
+
+function onWizardCountChanged() {
+  const count = wizardCount();
+  wizardRows.forEach(row => {
+    row.values = (row.values || []).slice(0, count);
+    while (row.values.length < count) row.values.push("");
+  });
+  renderWizardRows();
+}
+
+function addWizardRow(kind) {
+  const count = wizardCount();
+  wizardRows.push({ kind: kind === "check" ? "check" : "modify", target: "", values: new Array(count).fill("") });
+  renderWizardRows();
+}
+
+function removeWizardRow(index) {
+  wizardRows.splice(index, 1);
+  renderWizardRows();
+}
+
+function setWizardValue(rowIndex, caseIndex, value) {
+  const row = wizardRows[rowIndex];
+  if (!row) return;
+  row.values = row.values || [];
+  row.values[caseIndex] = value;
+}
+
+function renderWizardRows() {
+  const host = document.getElementById("wizRows");
+  if (!host) return;
+  const names = wizardCaseNames();
+  if (!names.length) {
+    host.innerHTML = `<div class="wiz-empty">请先填写用例数量（1 ~ 60）。</div>`;
+    return;
+  }
+  let html = `<table class="wiz-table"><thead><tr><th class="wiz-kind">类型</th>`
+    + `<th class="wiz-target">变量定位 / 结果关键字</th>`
+    + names.map(name => `<th class="wiz-case">${esc(name)}</th>`).join("")
+    + `<th></th></tr></thead><tbody>`;
+  if (!wizardRows.length) {
+    html += `<tr><td colspan="${names.length + 3}" class="wiz-empty">`
+      + `暂无参数行。需要按用例修改输入卡变量或检查结果时，用下方按钮添加；不需要时可直接生成。</td></tr>`;
+  }
+  wizardRows.forEach((row, ri) => {
+    html += `<tr><td><select class="wiz-kind" onchange="wizardRows[${ri}].kind=this.value;renderWizardRows()">`
+      + `<option value="modify" ${row.kind !== "check" ? "selected" : ""}>修改输入卡</option>`
+      + `<option value="check" ${row.kind === "check" ? "selected" : ""}>结果检查</option></select></td>`;
+    html += `<td><div style="display:flex;gap:4px;align-items:center">`
+      + `<input type="text" value="${esc(row.target)}" placeholder="${row.kind === "check" ? "例如：p@100010000" : "例如：L12:3@45"}" `
+      + `onchange="wizardRows[${ri}].target=this.value">`
+      + (row.kind === "check" ? "" : `<button type="button" onclick="searchWizardTarget(${ri})">检索</button>`)
+      + `</div><div class="wiz-hits" id="wizHits-${ri}"></div></td>`;
+    names.forEach((_, ci) => {
+      const value = (row.values || [])[ci] || "";
+      html += `<td><input type="text" value="${esc(value)}" `
+        + `placeholder="${row.kind === "check" ? "期望值" : "新值"}" `
+        + `onchange="setWizardValue(${ri},${ci},this.value)"></td>`;
+    });
+    html += `<td><button type="button" class="del" title="删除该行" onclick="removeWizardRow(${ri})">×</button></td></tr>`;
+  });
+  html += `</tbody></table>`;
+  host.innerHTML = html;
+  wizardRows.forEach((_, ri) => renderWizardHits(ri));
+}
+
+function renderWizardHits(rowIndex) {
+  const box = document.getElementById("wizHits-" + rowIndex);
+  if (!box) return;
+  const results = wizardHits[rowIndex] || [];
+  if (!results.length) { box.innerHTML = ""; return; }
+  box.innerHTML = results.map((item, index) => {
+    const value = item && item.value != null ? String(item.value) : "";
+    const meta = item && item.profile === "positional_text"
+      ? `记录 ${esc(item.record_id || "-")} · 字段 ${esc(item.field ?? "-")}`
+      : `卡 ${esc(item.card_id || "-")} · ${esc(item.target_keyword || item.keyword || "-")} · 字段 ${esc(item.field ?? "-")}`;
+    return `<button type="button" class="wiz-hit" data-wiz-row="${rowIndex}" data-wiz-index="${index}">`
+      + `<b>${esc(item && item.target ? item.target : "")}</b> · ${meta}`
+      + (value ? ` · 当前值 ${esc(value)}` : "") + `</button>`;
+  }).join("");
+  box.querySelectorAll(".wiz-hit").forEach(button => {
+    button.onclick = () => pickWizardHit(rowIndex, Number(button.dataset.wizIndex));
+  });
+}
+
+function pickWizardHit(rowIndex, index) {
+  const result = (wizardHits[rowIndex] || [])[index];
+  const row = wizardRows[rowIndex];
+  if (!result || !row) return;
+  row.target = result.target || "";
+  wizardHits[rowIndex] = [];
+  renderWizardRows();
+}
+
+async function searchWizardTarget(rowIndex) {
+  const row = wizardRows[rowIndex];
+  if (!row) return;
+  const card = document.getElementById("wizInput").value.trim() || "input.txt";
+  const path = /^inputs\//i.test(card) ? card : "inputs/" + card;
+  const box = document.getElementById("wizHits-" + rowIndex);
+  if (box) box.innerHTML = `<div class="wiz-empty">正在检索…</div>`;
+  try {
+    const params = new URLSearchParams({ path, q: String(row.target || "").trim(), limit: "500", all: "1" });
+    const data = await api("/api/input/search?" + params.toString());
+    if (data.error) throw new Error(data.error);
+    wizardHits[rowIndex] = data.results || [];
+    if (!wizardHits[rowIndex].length) {
+      if (box) box.innerHTML = `<div class="wiz-empty">没有匹配的变量；可直接手填定位，或换个关键词再检索。</div>`;
+      return;
+    }
+  } catch (e) {
+    wizardHits[rowIndex] = [];
+    if (box) box.innerHTML = `<div class="wiz-empty">检索失败：${esc(e && e.message ? e.message : e)}</div>`;
+    return;
+  }
+  renderWizardHits(rowIndex);
+}
+
+function wizardSpec() {
+  const variables = [];
+  const checks = [];
+  for (const row of wizardRows) {
+    const target = String(row.target || "").trim();
+    const values = (row.values || []).map(value => String(value == null ? "" : value).trim());
+    if (!target && !values.some(Boolean)) continue;
+    (row.kind === "check" ? checks : variables).push({ target, values });
+  }
+  return {
+    prefix: document.getElementById("wizPrefix").value.trim(),
+    count: wizardCount(),
+    start: parseInt(document.getElementById("wizStart").value || "1", 10) || 1,
+    run_dir_template: document.getElementById("wizRunDir").value.trim(),
+    executable: document.getElementById("wizExe").value.trim(),
+    software_key: document.getElementById("wizSoftware").value,
+    input_card: document.getElementById("wizInput").value.trim(),
+    output: document.getElementById("wizOutput").value.trim(),
+    timeout: parseInt(document.getElementById("wizTimeout").value || "600", 10) || 600,
+    variables,
+    checks,
+  };
+}
+
+function renderWizardPreview(cases) {
+  if (!cases.length) return "没有可生成的用例。";
+  const shown = cases.slice(0, 3);
+  let html = shown.map(item => `<div class="wiz-preview-case"><b>${esc(item.no)}</b><br>`
+    + (item.rows || []).map((row, index) => `${index + 1}. <code>${esc(row[1])}</code> ${esc(row[0])}`
+      + (row[2] ? ` · ${esc(row[2])}` : "")
+      + (row[3] ? ` · ${esc(row[3])}` : "")
+      + (row[4] ? ` → ${esc(row[4])}` : "")).join("<br>")
+    + `</div>`).join("");
+  if (cases.length > shown.length) {
+    html += `<div class="wiz-empty">…其余 ${cases.length - shown.length} 个用例结构相同</div>`;
+  }
+  return html;
+}
+
+async function previewScriptWizard() {
+  const box = document.getElementById("wizPreview");
+  box.textContent = "正在生成预览…";
+  try {
+    const data = await api("/api/script/wizard/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ spec: wizardSpec() }),
+    });
+    const cases = data.cases || [];
+    box.innerHTML = renderWizardPreview(cases);
+    const steps = cases.reduce((total, item) => total + (item.rows || []).length, 0);
+    document.getElementById("wizPreviewHint").textContent =
+      `将生成 ${cases.length} 个用例 / ${steps} 个步骤。`;
+  } catch (e) {
+    box.textContent = "预览失败：" + (e && e.message ? e.message : e);
+  }
+}
+
+async function createScriptFromWizard(event) {
+  event.preventDefault();
+  const path = document.getElementById("wizPath").value.trim();
+  if (!path) { warn("请填写剧本文件名"); return; }
+  const button = document.getElementById("btnWizardCreate");
+  button.disabled = true;
+  button.textContent = "正在生成...";
+  try {
+    const data = await api("/api/script/wizard/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        path,
+        spec: wizardSpec(),
+        overwrite: document.getElementById("wizOverwrite").checked,
+      }),
+    });
+    closeScriptWizard();
+    const normalized = data.path || path;
+    document.getElementById("scriptPath").value = normalized;
+    setSelectValue(document.getElementById("runScript"), normalized);
+    await loadScript(normalized);
+    await refreshScriptPicker();
+    switchTab("script");
+    warn("");
+  } catch (e) {
+    warn("生成剧本失败: " + (e && e.message ? e.message : e));
+  } finally {
+    button.disabled = false;
+    button.textContent = "生成剧本";
+  }
+}
+
+/* ---------------- 测试剧本编辑器 ---------------- */
+let ACTION_SPECS = {
+  folder_prep: { name: "folder_prep", object: "运行标识", params: "源输入卡, 可执行程序, 附加依赖", desc: "创建运行目录，默认整体拷贝软件库 bin、输入卡和有效 Windows 程序，并支持附加运行库/物性库", fields: [
+    { index: 0, role: "dir", label: "运行目录", placeholder: "例如：test_cases/case_01", required: true },
+    { index: 2, role: "object", label: "运行标识", placeholder: "例如：TC-R5-01", required: true },
+    { index: 3, role: "param", label: "源输入卡", placeholder: "例如：tp2.inp", required: true },
+    { index: 4, role: "param", label: "可执行程序", placeholder: "例如：relap5.exe", required: false },
+    { index: 5, role: "param", label: "附加依赖（可选）", placeholder: "全部 / runtime/*.dll / properties/tpfh2o；留空 = 软件库 bin + 默认依赖；无 = 不复制", required: false },
+  ]},
+  modify_inp: { name: "modify_inp", object: "输入卡文件名", params: "变量定位, 新值", desc: "检索输入卡变量并原位修改；支持卡定位和位置型 L行号:字段序号@行号", fields: [
+    { index: 0, role: "dir", label: "运行目录", placeholder: "先运行 folder_prep，例如 test_cases/case_01", required: true },
+    { index: 2, role: "object", label: "输入卡文件", placeholder: "例如：input.txt 或 indta", required: true },
+    { index: 3, role: "target", label: "变量定位", placeholder: "从下方检索结果选择", required: true, readonly: true },
+    { index: 4, role: "value", label: "新值（修改后）", placeholder: "例如：transnt 或 1.5e7", required: true },
+  ]},
+  run: { name: "run", object: "可执行程序名", params: "输出文件名, 结果关键字, 模拟值", desc: "运行普通被测程序；RELAP5 请改用 run_software 或兼容入口 run_relap5，结果检查用 outdta 变量", fields: [
+    { index: 0, role: "dir", label: "运行目录", placeholder: "运行目录", required: true },
+    { index: 2, role: "object", label: "可执行程序", placeholder: "例如：solver.exe", required: true },
+    { index: 3, role: "param", label: "输出文件名", placeholder: "output.txt", required: true },
+    { index: 4, role: "param", label: "结果关键字", placeholder: "例如：keff", required: false },
+    { index: 5, role: "param", label: "模拟值", placeholder: "例如：1.00003", required: false },
+  ]},
+  run_relap5: { name: "run_relap5", object: "relap5.exe", params: "输入卡名, 输出文件名, 超时秒", desc: "运行真实 RELAP5（-i indta -o outdta），自动忽略无效占位 exe 并分析 outdta", fields: [
+    { index: 0, role: "dir", label: "运行目录", placeholder: "运行目录", required: true },
+    { index: 2, role: "object", label: "可执行程序", placeholder: "relap5.exe", required: true },
+    { index: 3, role: "param", label: "输入卡名", placeholder: "indta", required: true },
+    { index: 4, role: "param", label: "输出文件名", placeholder: "outdta", required: false },
+    { index: 5, role: "param", label: "超时（秒）", placeholder: "1800", required: false, type: "number" },
+  ]},
+  run_software: { name: "run_software", object: "可执行程序", params: "软件类型, 输入卡名, 输出文件/相对路径, 超时秒", desc: "通过统一适配器运行软件；RELAP5 与 NUSOL-SYSLMR 可用，中子物理/子通道/燃料性能已预留但尚未实现", fields: [
+    { index: 0, role: "dir", label: "运行目录", placeholder: "运行目录", required: true },
+    { index: 2, role: "object", label: "可执行程序", placeholder: "例如：relap5.exe / nusolsyslmr.exe / solver.exe", required: true },
+    { index: 3, role: "param", label: "软件类型", placeholder: "relap5 / nusolsyslmr / neutron_physics / subchannel / fuel_performance", required: true },
+    { index: 4, role: "param", label: "输入卡名", placeholder: "例如：input.txt 或 indta", required: true },
+    { index: 5, role: "param", label: "输出文件/相对路径", placeholder: "例如：outdta、results/outdta；以 results/ 结尾表示目录", required: false },
+    { index: 6, role: "param", label: "超时（秒）", placeholder: "例如：600", required: false, type: "number" },
+  ]},
+  check_output: { name: "check_output", object: "输出文件名", params: "结果关键字, 期望值, 软件类型", desc: "从输出中提取结果并回填、自动比对；软件类型留空时兼容 RELAP5", fields: [
+    { index: 0, role: "dir", label: "运行目录", placeholder: "运行目录", required: true },
+    { index: 2, role: "object", label: "输出文件", placeholder: "例如：output.txt 或 outdta", required: true },
+    { index: 3, role: "param", label: "结果关键字", placeholder: "例如：p@100010000", required: true },
+    { index: 4, role: "param", label: "期望值", placeholder: "例如：15.5", required: true },
+    { index: 5, role: "param", label: "软件类型（可选）", placeholder: "relap5 / nusolsyslmr / neutron_physics / subchannel / fuel_performance", required: false },
+  ]},
+  run_code: { name: "run_code", object: "可执行程序名", params: "命令行参数", desc: "直接执行被测程序", fields: [
+    { index: 0, role: "dir", label: "运行目录", placeholder: "运行目录", required: true },
+    { index: 2, role: "object", label: "可执行程序", placeholder: "例如：checker.exe", required: true },
+    { index: 3, role: "param", label: "命令行参数", placeholder: "留空或输入参数", required: false },
+  ]},
+  check: { name: "check", object: "检查对象", params: "说明", desc: "占位检查", fields: [
+    { index: 0, role: "dir", label: "运行目录", placeholder: "运行目录", required: false },
+    { index: 2, role: "object", label: "检查对象", placeholder: "可留空", required: false },
+    { index: 3, role: "param", label: "说明", placeholder: "检查说明", required: false },
+  ]},
+};
+let ACTION_ORDER = Object.keys(ACTION_SPECS);
+let inpPickerState = {};
+let keywordSpecsPromise = null;
+
+function normalizeRow(row) {
+  const out = Array.isArray(row) ? row.slice(0, 7) : [];
+  while (out.length < 7) out.push("");
+  return out.map(v => v == null ? "" : String(v));
+}
+function actionSpec(action) { return ACTION_SPECS[action] || ACTION_SPECS.run; }
+function isFolderPrepAction(action) {
+  if (action === "folder_prep") return true;
+  const spec = ACTION_SPECS[action];
+  return !!spec && spec.impl === "folder_prep";
+}
+function actionFields(action) { return actionSpec(action).fields || []; }
+function fieldPos(fields, index) {
+  const pos = fields.findIndex(f => Number(f.index) === Number(index));
+  return pos >= 0 ? pos + 1 : 0;
+}
+function dynamicFieldClass(fields, field) {
+  const role = String(field.role || "");
+  if (role === "dir") return "field-dir";
+  if (Number(field.index) === 2) return "field-object";
+  const extras = fields.filter(f => {
+    const index = Number(f.index);
+    return index !== 0 && index !== 2;
+  });
+  const pos = extras.findIndex(f => Number(f.index) === Number(field.index));
+  return "field-p" + Math.max(1, pos + 1);
+}
+function dynamicFieldCount(fields) {
+  return Math.max(1, fields.filter(f => Number(f.index) !== 0).length);
+}
+function normalizeScriptRows() {
+  scriptCases.forEach(c => {
+    c.rows = (c.rows || []).map(normalizeRow);
+  });
+}
+async function loadActionSpecs(force) {
+  if (keywordSpecsPromise && !force) return keywordSpecsPromise;
+  keywordSpecsPromise = (async () => {
+    try {
+      const data = await api("/api/keywords");
+      const specs = {};
+      for (const item of data.keywords || []) {
+        if (item && item.name && Array.isArray(item.fields) && item.fields.length) {
+          specs[item.name] = item;
+        }
+      }
+      if (Object.keys(specs).length) {
+        ACTION_SPECS = specs;
+        ACTION_ORDER = (data.keywords || []).map(k => k.name).filter(name => ACTION_SPECS[name]);
+      }
+    } catch (e) {
+      // Keep the local schema as a safe fallback when the backend is still starting.
+      console.warn("加载关键词字段定义失败，使用内置定义", e);
+    }
+    return ACTION_SPECS;
+  })();
+  return keywordSpecsPromise;
+}
+function inputNameForCase(ci) {
+  const rows = (scriptCases[ci] && scriptCases[ci].rows) || [];
+  for (const row of rows) {
+    if (isFolderPrepAction(row[1]) && row[3]) return String(row[3]).trim();
+  }
+  return "";
+}
+function caseRunDir(ci) {
+  const project = scriptCases[ci];
+  if (!project) return "test_cases/case_01";
+  const rows = project.rows || [];
+  const prep = rows.find(row => isFolderPrepAction(row[1]) && String(row[0] || "").trim());
+  if (prep) return String(prep[0]).trim();
+  const no = String(project.no || "").trim() || "case_" + (ci + 1);
+  return "test_cases/" + no.replace(/[\\/:*?"<>|]/g, "_");
+}
+function upstreamOutput(ci) {
+  const rows = (scriptCases[ci] && scriptCases[ci].rows) || [];
+  for (const row of rows) {
+    if (row[1] === "run_software") return String(row[5] || "").trim();
+    if (row[1] === "run_relap5") return String(row[4] || "").trim();
+    if (row[1] === "run") return String(row[3] || "").trim();
+  }
+  return "";
+}
+function prefillContext(ci) {
+  const defaults = wizardDefaults || {};
+  const context = {
+    exe: defaults.executable || "",
+    software: (currentProject && currentProject.software_key) || defaults.software_key || "",
+    input: defaults.input_card || "",
+    output: defaults.output || "output.txt",
+    timeout: String(defaults.timeout || 600),
+  };
+  const prep = ((scriptCases[ci] && scriptCases[ci].rows) || [])
+    .find(row => isFolderPrepAction(row[1]));
+  if (prep) {
+    if (String(prep[3] || "").trim()) context.input = String(prep[3]).trim();
+    if (String(prep[4] || "").trim()) context.exe = String(prep[4]).trim();
+  }
+  return context;
+}
+function prefillStep(ci, row, action) {
+  const context = prefillContext(ci);
+  if (!String(row[0] || "").trim()) row[0] = caseRunDir(ci);
+  if (action === "folder_prep") {
+    if (!String(row[2] || "").trim()) row[2] = scriptCases[ci].no || "";
+    if (!String(row[3] || "").trim()) row[3] = context.input;
+    if (!String(row[4] || "").trim()) row[4] = context.exe;
+  } else if (action === "modify_inp") {
+    if (!String(row[2] || "").trim()) row[2] = context.input;
+  } else if (action === "run_software") {
+    if (!String(row[2] || "").trim()) row[2] = context.exe;
+    if (!String(row[3] || "").trim()) row[3] = context.software;
+    if (!String(row[4] || "").trim()) row[4] = context.input;
+    if (!String(row[5] || "").trim()) row[5] = context.output;
+    if (!String(row[6] || "").trim()) row[6] = context.timeout;
+  } else if (action === "run_relap5") {
+    if (!String(row[2] || "").trim()) row[2] = context.exe || "relap5.exe";
+    if (!String(row[3] || "").trim()) row[3] = context.input;
+    if (!String(row[4] || "").trim()) row[4] = context.output;
+    if (!String(row[5] || "").trim()) row[5] = context.timeout;
+  } else if (action === "check_output") {
+    if (!String(row[2] || "").trim()) row[2] = upstreamOutput(ci) || context.output;
+    if (!String(row[5] || "").trim()) row[5] = context.software;
+  } else if (action === "run") {
+    if (!String(row[2] || "").trim()) row[2] = context.exe;
+    if (!String(row[3] || "").trim()) row[3] = context.output;
+  } else if (action === "run_code") {
+    if (!String(row[2] || "").trim()) row[2] = context.exe;
+  }
+}
+function replacementPathForCase(ci) {
+  return `test_cases/replaced_${ci + 1}_` + Date.now();
+}
+function inpPickerKey(ci, ri) { return `${ci}:${ri}`; }
+function normalizeInputCardPath(value) {
+  let path = String(value || "").trim().replace(/\\/g, "/");
+  if (!path) return "";
+  if (/^[A-Za-z]:\//.test(path) || path.startsWith("/") || path.startsWith("./") || path.startsWith("../")) return path;
+  if (path.startsWith("inputs/")) return path;
+  return "inputs/" + path;
+}
+function inpPickerCandidatePaths(ci, ri) {
+  const state = inpPickerState[inpPickerKey(ci, ri)] || {};
+  if (state.path) {
+    const explicit = String(state.path).trim();
+    return explicit ? [explicit] : [];
+  }
+  const row = scriptCases[ci].rows[ri] || [];
+  const source = inputNameForCase(ci);
+  const objectName = String(row[2] || "").trim();
+  const candidates = [];
+  for (const name of [source, objectName]) {
+    const normalized = normalizeInputCardPath(name);
+    if (normalized && !candidates.includes(normalized)) candidates.push(normalized);
+  }
+  const objectNormalized = normalizeInputCardPath(objectName);
+  if (objectNormalized) {
+    const baseName = objectNormalized.split("/").pop();
+    const relapPath = "inputs/relap5/" + baseName;
+    if (!candidates.includes(relapPath)) candidates.push(relapPath);
+  }
+  return candidates;
+}
+function inpPickerDefaultPath(ci, ri) {
+  return inpPickerCandidatePaths(ci, ri)[0] || "";
+}
+function inpPickerPath(ci, ri) {
+  const state = inpPickerState[inpPickerKey(ci, ri)];
+  return (state && state.path) || inpPickerDefaultPath(ci, ri);
+}
+function inpPickerQuery(ci, ri) {
+  const state = inpPickerState[inpPickerKey(ci, ri)];
+  return state ? state.query : "";
+}
+function inpPickerResults(ci, ri) {
+  const state = inpPickerState[inpPickerKey(ci, ri)];
+  return state && Array.isArray(state.results) ? state.results : [];
+}
+function inpPickerError(ci, ri) {
+  const state = inpPickerState[inpPickerKey(ci, ri)];
+  return state && state.error ? state.error : "";
+}
+function setInpPickerField(ci, ri, field, value) {
+  const k = inpPickerKey(ci, ri);
+  inpPickerState[k] = { ...(inpPickerState[k] || {}), [field]: value };
+}
+function inpFieldMarkup(ci, ri, field, fields) {
+  const current = scriptCases[ci].rows[ri][field.index] ?? "";
+  const required = field.required ? " required" : "";
+  const cls = dynamicFieldClass(fields, field);
+  const missing = field.required && !String(current).trim() ? " missing" : "";
+  const label = esc(field.label || "参数");
+  const ph = esc(field.placeholder || "");
+  let input;
+  if (field.index === 2) {
+    input = `<input type="text" value="${esc(current)}" placeholder="${ph}"${required} onchange="setCell(${ci},${ri},2,this.value)">`;
+  } else if (field.role === "target") {
+    input = `<input type="text" class="target-input" value="${esc(current)}" placeholder="${ph}"${required} readonly>`;
+  } else {
+    const type = field.type === "number" ? "number" : "text";
+    input = `<input type="${type}" value="${esc(current)}" placeholder="${ph}"${required} onchange="setCell(${ci},${ri},${field.index},this.value)">`;
+  }
+  return `<label class="step-field ${cls}${missing}"><span class="mobile-label">${label}</span>${input}`
+    + (field.role === "target" ? `<span class="field-note">该值由输入卡检索结果自动填入</span>` : "")
+    + `</label>`;
+}
+function inpPickerMarkup(ci, ri, fields) {
+  const row = scriptCases[ci].rows[ri];
+  const targetField = fields.find(f => f.role === "target");
+  const selected = targetField ? String(row[targetField.index] || "") : "";
+  const target = selected.trim();
+  const path = inpPickerPath(ci, ri);
+  const query = inpPickerQuery(ci, ri);
+  const state = inpPickerState[inpPickerKey(ci, ri)] || {};
+  const results = inpPickerResults(ci, ri);
+  const error = inpPickerError(ci, ri);
+  let match = null;
+  if (target) {
+    match = {
+      target,
+      value: state.seenValue ?? "",
+      line_no: state.line_no ?? "",
+      card_id: state.card_id ?? "",
+      record_id: state.record_id ?? "",
+      profile: state.profile ?? "",
+      keyword: state.keyword ?? "",
+      description: state.description ?? "",
+      target_keyword: state.target_keyword ?? state.keyword ?? "-",
+      field: state.field ?? "",
+    };
+  }
+  const resultHtml = results.length
+    ? results.map((r, index) => {
+      const value = r && r.value != null ? String(r.value) : "";
+      const positional = r && r.profile === "positional_text";
+      const cardLabel = r ? (positional ? (r.record_id || "-") : (r.target_keyword || r.keyword || "-")) : "-";
+      const description = r && r.description ? ` · ${esc(r.description)}` : "";
+      const meta = r
+        ? (positional
+          ? `记录 ${esc(cardLabel)} · 字段 ${esc(r.field ?? "-")} · 第 ${esc(r.line_no ?? "-")} 行${description}`
+          : `卡 ${esc(r.card_id || "-")} · 标识 ${esc(cardLabel)} · 字段 ${esc(r.field ?? "-")} · 第 ${esc(r.line_no ?? "-")} 行`)
+        : "输入卡字段";
+      return `<button type="button" class="inp-result${r && r.target === target ? " selected" : ""}" data-inp-result-index="${index}">`
+        + `<span class="inp-result-target">${esc(r && r.target ? r.target : "")}</span>`
+        + `<span class="inp-result-meta">${meta}</span>`
+        + `<span class="inp-result-value">${value ? esc(value) : "-"}</span></button>`;
+    }).join("")
+    : (state.loaded ? `<div class="inp-empty">${error ? esc(error) : (query ? "没有匹配变量" : "输入关键词后检索，或直接查看全部字段")}</div>` : "");
+  const currentValue = match && match.value != null && String(match.value) !== "" ? String(match.value) : "-";
+  const currentDescription = match && match.description ? `<br><span class="inp-picker-hint">${esc(match.description)}</span>` : "";
+  const current = match
+    ? `<div class="inp-picker-selected">已选定位 <b>${esc(match.target)}</b> · 输入卡当前值 <b>${esc(currentValue)}</b>${currentDescription}<br><span class="inp-picker-hint">上方“当前值”仅供核对；请在“新值（修改后）”中填写执行后的目标值，选择变量不会覆盖它。</span></div>`
+    : `<div class="inp-picker-selected">尚未选择变量。检索并点击字段后，定位会自动写入“变量定位”；新值由用户单独填写。</div>`;
+  return `<div class="inp-picker" data-inp-ci="${ci}" data-inp-ri="${ri}">
+    <div class="inp-picker-title">检索输入卡变量</div>
+    <div class="inp-picker-row">
+      <input type="text" class="inp-picker-path" value="${esc(path)}" placeholder="输入卡路径，例如 inputs/CheckSGInput.txt" aria-label="输入卡路径">
+      <button type="button" class="inp-picker-browse">浏览...</button>
+      <input type="text" class="inp-picker-query" value="${esc(query)}" placeholder="输入说明、记录、卡号或当前值，例如 过热器、L12 或 14e6" aria-label="变量检索关键词">
+      <button type="button" class="inp-picker-search">检索</button>
+    </div>
+    <div class="inp-picker-hint">路径可留空：将自动使用同一用例 folder_prep 的源输入卡，或 inputs 下的同名文件。检索会自动识别 RELAP5 卡格式与位置型格式，并显示字段、参数说明和当前值。点击结果只填“变量定位”，不会改动“新值”。</div>
+    ${current}
+    <div class="inp-results">${resultHtml}</div>
+  </div>`;
+}
+function findInpPicker(ci, ri) {
+  return document.querySelector(`.inp-picker[data-inp-ci="${ci}"][data-inp-ri="${ri}"]`);
+}
+function updateInpPickerState(ci, ri, patch) {
+  const k = inpPickerKey(ci, ri);
+  inpPickerState[k] = { ...(inpPickerState[k] || {}), ...patch };
+}
+async function searchInpWithCandidates(ci, ri, query) {
+  const candidates = inpPickerCandidatePaths(ci, ri);
+  if (!candidates.length) throw new Error("没有可检索的输入卡路径，请先填写输入卡路径或添加 folder_prep 步骤");
+  let lastError = "";
+  for (const path of candidates) {
+    try {
+      const params = new URLSearchParams({ path, q: query, limit: "500", all: "1" });
+      const data = await api("/api/input/search?" + params.toString());
+      if (data && data.ok === false) {
+        lastError = data.error || `无法读取输入卡: ${path}`;
+        continue;
+      }
+      if (data && data.error) {
+        lastError = data.error;
+        continue;
+      }
+      return { data, path };
+    } catch (e) {
+      lastError = e && e.message ? e.message : String(e);
+    }
+  }
+  throw new Error(lastError || "无法检索输入卡");
+}
+async function searchInpVariables(ci, ri) {
+  const picker = findInpPicker(ci, ri);
+  if (!picker) return;
+  const query = picker.querySelector(".inp-picker-query").value;
+  updateInpPickerState(ci, ri, { query, error: "", loaded: true });
+  const resultsBox = picker.querySelector(".inp-results");
+  if (resultsBox) resultsBox.innerHTML = `<div class="inp-empty">正在检索…</div>`;
+  try {
+    const { data, path } = await searchInpWithCandidates(ci, ri, query);
+    updateInpPickerState(ci, ri, { path, results: data.results || [], error: data.error || "", loaded: true });
+  } catch (e) {
+    updateInpPickerState(ci, ri, { results: [], error: e && e.message ? e.message : String(e), loaded: true });
+  }
+  refreshInpPicker(ci, ri);
+}
+function refreshInpPicker(ci, ri) {
+  const panel = findInpPicker(ci, ri);
+  if (!panel) return;
+  const row = scriptCases[ci] && scriptCases[ci].rows ? scriptCases[ci].rows[ri] : null;
+  if (!row) return;
+  panel.outerHTML = inpPickerMarkup(ci, ri, actionFields(row[1]));
+  bindAllInpPickers();
+}
+function targetParts(target) {
+  const text = String(target || "").trim();
+  let match = text.match(/^L(\d+):(\d+)@(\d+)$/i);
+  if (match) {
+    return {
+      profile: "positional_text",
+      card_id: "",
+      record_id: `L${match[1]}`,
+      keyword: "",
+      target_keyword: "-",
+      field: Number(match[2]),
+      line_no: Number(match[3]),
+    };
+  }
+  match = text.match(/^(\d{3,8}):([^:@\s]+):(\d+)@(\d+)$/);
+  if (!match) return null;
+  return {
+    profile: "relap5",
+    card_id: match[1],
+    record_id: "",
+    keyword: match[2],
+    target_keyword: match[2],
+    field: Number(match[3]),
+    line_no: Number(match[4]),
+  };
+}
+function selectionFingerprint(ci, ri, target) {
+  return `${inpPickerPath(ci, ri)}|${String(target || "").trim()}`;
+}
+function findLegacyInpMatch(results, parts) {
+  if (!parts || parts.keyword === "-") return null;
+  return (results || []).find(r =>
+    r && String(r.card_id || "") === String(parts.card_id || "")
+    && Number(r.field) === Number(parts.field)
+    && Number(r.line_no) === Number(parts.line_no)
+    && String(r.target_keyword || r.keyword || "-") === "-"
+  ) || null;
+}
+async function hydrateInpSelection(ci, ri) {
+  const row = scriptCases[ci] && scriptCases[ci].rows ? scriptCases[ci].rows[ri] : null;
+  if (!row) return;
+  const targetField = actionFields(row[1]).find(f => f.role === "target");
+  if (!targetField) return;
+  const target = String(row[targetField.index] || "").trim();
+  const parts = targetParts(target);
+  if (!parts) return;
+  const state = inpPickerState[inpPickerKey(ci, ri)] || {};
+  const fingerprint = selectionFingerprint(ci, ri, target);
+  if (state.resolvedTarget === fingerprint || state.hydratingTarget === fingerprint) return;
+  updateInpPickerState(ci, ri, { hydratingTarget: fingerprint });
+  try {
+    const query = parts.profile === "positional_text"
+      ? `L${parts.line_no}`
+      : `${parts.card_id} ${parts.line_no}`;
+    const { data, path } = await searchInpWithCandidates(ci, ri, query);
+    const match = (data.results || []).find(r => r && r.target === target);
+    const legacyMatch = !match && parts.profile === "relap5"
+      ? findLegacyInpMatch(data.results, parts)
+      : null;
+    const resolved = match || legacyMatch;
+    updateInpPickerState(ci, ri, {
+      path,
+      seenValue: resolved && resolved.value != null ? String(resolved.value) : "",
+      line_no: resolved ? resolved.line_no : parts.line_no,
+      card_id: resolved ? (resolved.card_id || parts.card_id || "") : (parts.card_id || ""),
+      record_id: resolved ? (resolved.record_id || parts.record_id || "") : (parts.record_id || ""),
+      profile: resolved ? (resolved.profile || parts.profile) : parts.profile,
+      keyword: resolved ? (resolved.keyword || parts.keyword || "") : (parts.keyword || ""),
+      description: resolved ? (resolved.description || "") : "",
+      target_keyword: resolved
+        ? (resolved.target_keyword || resolved.keyword || "-")
+        : (parts.target_keyword || parts.keyword || "-"),
+      field: resolved ? resolved.field : parts.field,
+      selectedTarget: target,
+      resolvedTarget: fingerprint,
+      hydratingTarget: "",
+      error: resolved ? "" : "当前输入卡中未找到已有定位，请重新检索选择",
+    });
+  } catch (e) {
+    updateInpPickerState(ci, ri, {
+      hydratingTarget: "",
+      error: e && e.message ? e.message : String(e),
+    });
+  }
+  refreshInpPicker(ci, ri);
+}
+function selectInpVariable(ci, ri, index) {
+  const result = inpPickerResults(ci, ri)[index];
+  if (!result) return;
+  const row = scriptCases[ci].rows[ri];
+  const fields = actionFields(row[1]);
+  const targetField = fields.find(f => f.role === "target");
+  if (!targetField) return;
+  row[targetField.index] = result.target || "";
+  stateForSelection(ci, ri, result);
+  const stepRow = document.querySelector(`.step-row[data-step-ci="${ci}"][data-step-ri="${ri}"]`);
+  const targetInput = stepRow ? stepRow.querySelector(".target-input") : null;
+  if (targetInput) targetInput.value = result.target || "";
+  refreshInpPicker(ci, ri);
+}
+function stateForSelection(ci, ri, result) {
+  const fingerprint = selectionFingerprint(ci, ri, result.target);
+  updateInpPickerState(ci, ri, {
+    seenValue: result.value == null ? "" : String(result.value),
+    line_no: result.line_no,
+    card_id: result.card_id,
+    record_id: result.record_id || "",
+    profile: result.profile || "",
+    keyword: result.keyword,
+    description: result.description || "",
+    target_keyword: result.target_keyword || result.keyword || "-",
+    field: result.field,
+    selectedTarget: result.target,
+    resolvedTarget: fingerprint,
+    hydratingTarget: "",
+    error: "",
+  });
+}
+function bindInpPicker(picker) {
+  if (!picker || picker.dataset.bound === "1") return;
+  const ci = Number(picker.dataset.inpCi), ri = Number(picker.dataset.inpRi);
+  if (!Number.isInteger(ci) || !Number.isInteger(ri)) return;
+  picker.dataset.bound = "1";
+  const pathInput = picker.querySelector(".inp-picker-path");
+  const queryInput = picker.querySelector(".inp-picker-query");
+  const searchBtn = picker.querySelector(".inp-picker-search");
+  const browseBtn = picker.querySelector(".inp-picker-browse");
+  const runSearch = () => searchInpVariables(ci, ri);
+  searchBtn.onclick = runSearch;
+  browseBtn.onclick = async () => {
+    try {
+      const picked = await invoke("pick_file", { kind: "input" });
+      if (!picked) return;
+      const relative = await projectRelativePath(picked, true);
+      setInpPickerField(ci, ri, "path", relative.path);
+      pathInput.value = relative.path;
+      updateInpPickerState(ci, ri, { results: [], error: "", loaded: false });
+    } catch (e) {
+      warn("选择输入卡失败: " + (e && e.message ? e.message : e));
+    }
+  };
+  pathInput.oninput = () => setInpPickerField(ci, ri, "path", pathInput.value);
+  queryInput.oninput = () => setInpPickerField(ci, ri, "query", queryInput.value);
+  pathInput.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); runSearch(); } };
+  queryInput.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); runSearch(); } };
+  const results = picker.querySelector(".inp-results");
+  if (results) {
+    results.querySelectorAll(".inp-result").forEach(btn => {
+      btn.onclick = () => selectInpVariable(ci, ri, Number(btn.dataset.inpResultIndex));
+    });
+  }
+  setTimeout(() => hydrateInpSelection(ci, ri), 0);
+}
+function bindAllInpPickers() {
+  document.querySelectorAll(".inp-picker").forEach(bindInpPicker);
+}
+async function refreshScriptPicker() {
+  const sel = document.getElementById("scriptPicker");
+  if (!sel) return;
+  const current = (document.getElementById("scriptPath").value || "").trim();
+  let files = [];
+  try {
+    const data = await api("/api/files?path=" + encodeURIComponent("data"));
+    if (!data.error) {
+      files = (data.entries || [])
+        .filter(e => !e.dir && /\.xlsx$/i.test(e.name))
+        .map(e => e.name)
+        .sort((a, b) => a.localeCompare(b));
+    }
+  } catch (e) {
+    files = [];
+  }
+  const values = files.map(n => "data/" + n);
+  const opts = ['<option value="">选择项目内的剧本…</option>'];
+  for (let i = 0; i < values.length; i += 1) {
+    opts.push(`<option value="${esc(values[i])}">${esc(files[i])}</option>`);
+  }
+  if (current && !values.includes(current)) {
+    opts.push(`<option value="${esc(current)}">${esc(current)}（当前）</option>`);
+  }
+  sel.innerHTML = opts.join("");
+  sel.value = current || "";
+}
+
+async function onScriptPicked() {
+  const sel = document.getElementById("scriptPicker");
+  const value = ((sel && sel.value) || "").trim();
+  if (!value) return;
+  document.getElementById("scriptPath").value = value;
+  await loadScript(value);
+}
+
+async function loadScript(path) {
+  const p = path || document.getElementById("scriptPath").value.trim();
+  if (!p) { warn("请先选择或输入测试剧本路径"); return; }
+  try {
+    const data = await api("/api/script?path=" + encodeURIComponent(p));
+    if (data.error) throw new Error(data.error);
+    await loadActionSpecs();
+    const normalized = data.path || p;
+    scriptCases = data.cases || [];
+    inpPickerState = {};
+    document.getElementById("scriptPath").value = normalized;
+    setSelectValue(document.getElementById("runScript"), normalized);
+    document.getElementById("script-file-hint").textContent = normalized + " · 按关键词动态编辑";
+    document.getElementById("runSummary").textContent =
+      `剧本已加载：${scriptCases.length} 个用例 / ${scriptCases.reduce((n, c) => n + (c.rows || []).length, 0)} 个步骤`;
+    renderScript();
+    lastOrderKey = "";
+    warn("");
+    await refreshScriptPicker();
+  } catch (e) {
+    warn("加载剧本失败: " + (e && e.message ? e.message : e));
+  }
+}
+
+async function saveScript() {
+  const path = document.getElementById("scriptPath").value.trim();
+  if (!path) { warn("请先指定剧本路径"); return; }
+  try {
+    const res = await api("/api/script/save", { method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path, cases: scriptCases }) });
+    if (res.error) throw new Error(res.error);
+    warn("");
+    alert("已保存: " + res.path);
+    await loadScript(res.path);
+  } catch (e) {
+    warn("保存失败: " + (e && e.message ? e.message : e));
+  }
+}
+
+async function saveAs() {
+  const path = document.getElementById("scriptPath").value.trim();
+  if (!path) { warn("请先指定剧本路径"); return; }
+  try {
+    const res = await api("/api/script/saveas", { method: "POST",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path }) });
+    if (res.error) throw new Error(res.error);
+    alert("已另存为正式数据: " + res.path);
+  } catch (e) {
+    warn("另存失败: " + (e && e.message ? e.message : e));
+  }
+}
+
+function renderScript() {
+  normalizeScriptRows();
+  const host = document.getElementById("scriptEditor");
+  host.innerHTML = "";
+  scriptCases.forEach((c, ci) => {
+    const card = document.createElement("div");
+    card.className = "case-card";
+    let html = `<div class="case-head"><span class="label">用例:</span>
+      <input type="text" value="${esc(c.no)}" style="width:200px" onchange="setCaseNo(${ci},this.value)">
+      <div class="case-actions">
+        <button type="button" onclick="copyCase(${ci})">复制用例</button>
+        <button type="button" onclick="syncCaseRunDir(${ci})" title="把本用例所有步骤的运行目录统一为 ${esc(caseRunDir(ci))}">同步运行目录</button>
+        <button type="button" class="danger" onclick="delCase(${ci})">删除用例</button>
+      </div>
+      <div class="spacer" style="flex:1"></div>
+      <span class="hint" style="margin:0">${(c.rows || []).length} 个步骤</span></div>`;
+    c.rows.forEach((row, ri) => {
+      const fields = actionFields(row[1]);
+      const columns = fields.filter(f => Number(f.index) !== 0);
+      const count = dynamicFieldCount(fields);
+      const style = `--field-count:${count}`;
+      const dirMissing = String(row[0] || "").trim() ? "" : " missing";
+      const note = esc(ACTION_LABELS[row[1]] || "");
+      html += `<div class="step-section">`;
+      html += `<div class="step-insert"><button type="button" title="在当前步骤之前插入新步骤" onclick="insertStep(${ci},${ri})">＋ 在此步骤前插入</button></div>`;
+      html += `<div class="step-columns dynamic" style="${style}"><span></span><span>运行目录</span><span>关键词</span>`
+        + columns.map(f => `<span>${esc(f.label || "参数")}</span>`).join("")
+        + `<span></span></div>`;
+      html += `<div class="step-row dynamic" data-step-ci="${ci}" data-step-ri="${ri}" style="${style}"><span class="idx">${ri + 1}</span>`;
+      html += `<label class="step-field field-dir${dirMissing}"><span class="mobile-label">运行目录</span><input type="text" value="${esc(row[0])}" placeholder="例如 test_cases/case_01" onchange="setRunDir(${ci},${ri},this.value)"></label>`;
+      html += `<label class="step-field field-action"><span class="mobile-label">关键词</span><select onchange="changeAction(${ci},${ri},this.value)">`
+        + ACTION_ORDER.map(a => `<option value="${esc(a)}" ${a === row[1] ? "selected" : ""}>${esc(a)}</option>`).join("")
+        + `</select><span class="act-note" title="${esc(actionSpec(row[1]).desc || "")}">${note}</span></label>`;
+      html += columns.map(f => inpFieldMarkup(ci, ri, f, fields)).join("");
+      html += `<span class="step-actions"><button type="button" class="step-move" title="上移此步骤" onclick="moveStep(${ci},${ri},-1)">↑</button>`
+        + `<button type="button" class="step-move" title="下移此步骤" onclick="moveStep(${ci},${ri},1)">↓</button>`
+        + `<button type="button" class="copy" title="复制此步骤并插入到其后" onclick="copyStep(${ci},${ri})">复制</button>`
+        + `<button type="button" class="del" title="删除步骤" onclick="delStep(${ci},${ri})">×</button></span>`;
+      if (row[1] === "modify_inp") html += inpPickerMarkup(ci, ri, fields);
+      html += `</div>`;
+    });
+    html += `<div class="case-steps-bar"><span class="case-dir">运行目录 <code>${esc(caseRunDir(ci))}</code></span>`
+      + `<button type="button" onclick="addStep(${ci})">＋ 步骤</button>`
+      + `<button type="button" onclick="addStep(${ci},'modify_inp')" title="新增一步并预填输入卡名">＋ 修改输入卡</button>`
+      + `<button type="button" onclick="addStep(${ci},'run_software')" title="新增一步并预填程序、软件类型、输入卡和输出名">＋ 运行软件</button>`
+      + `<button type="button" onclick="addStep(${ci},'check_output')" title="新增一步并预填输出文件名">＋ 检查结果</button></div>`;
+    card.innerHTML = html;
+    host.appendChild(card);
+  });
+  bindAllInpPickers();
+  const hint = document.getElementById("script-file-hint");
+  if (hint) {
+    const total = scriptCases.reduce((n, item) => n + (item.rows || []).length, 0);
+    const path = document.getElementById("scriptPath").value.trim();
+    hint.textContent = (path || "未选择剧本文件") + ` · ${scriptCases.length} 个用例 / ${total} 个步骤`;
+  }
+  if (!scriptCases.length) {
+    host.innerHTML = `<div class="panel hint">尚未加载剧本。可以点“＋ 新建剧本”按模板批量生成，或加载项目内已有剧本。</div>`;
+  }
+}
+function setCell(ci, ri, i, v) { scriptCases[ci].rows[ri][i] = v; }
+function setRunDir(ci, ri, value) {
+  const row = scriptCases[ci].rows[ri];
+  if (!row) return;
+  const previous = String(row[0] || "").trim();
+  const next = String(value || "").trim();
+  row[0] = next;
+  if (isFolderPrepAction(row[1])) {
+    scriptCases[ci].rows.forEach((item, index) => {
+      if (index === ri) return;
+      const current = String(item[0] || "").trim();
+      if (!current || current === previous) item[0] = next;
+    });
+  }
+  renderScript();
+}
+function setCaseNo(ci, value) {
+  const project = scriptCases[ci];
+  if (!project) return;
+  const previous = String(project.no || "").trim();
+  const next = String(value || "").trim();
+  project.no = next;
+  const previousDir = "test_cases/" + previous;
+  const nextDir = "test_cases/" + next;
+  (project.rows || []).forEach(row => {
+    if (String(row[0] || "").trim() === previousDir) row[0] = nextDir;
+    if (isFolderPrepAction(row[1]) && String(row[2] || "").trim() === previous) row[2] = next;
+  });
+  renderScript();
+}
+function changeAction(ci, ri, action) {
+  const row = scriptCases[ci].rows[ri];
+  row[1] = action;
+  prefillStep(ci, row, action);
+  renderScript();
+}
+function nextCaseNo() {
+  const existing = new Set(scriptCases.map(item => String(item.no || "")));
+  let index = scriptCases.length + 1;
+  let candidate = "TC-" + String(index).padStart(2, "0");
+  while (existing.has(candidate)) {
+    index += 1;
+    candidate = "TC-" + String(index).padStart(2, "0");
+  }
+  return candidate;
+}
+function addCase() {
+  const no = nextCaseNo();
+  const row = ["test_cases/" + no, "folder_prep", no, "", "", "", ""];
+  const ci = scriptCases.length;
+  scriptCases.push({ no, rows: [row] });
+  prefillStep(ci, row, "folder_prep");
+  scriptCases[ci].rows[0] = row;
+  afterScriptStructureChange();
+}
+function copyCase(ci) {
+  const source = scriptCases[ci];
+  if (!source) return;
+  const base = String(source.no || "TC").trim() || "TC";
+  const existing = new Set(scriptCases.map(item => String(item.no || "")));
+  let candidate = base + "-copy";
+  let counter = 2;
+  while (existing.has(candidate)) { candidate = base + "-copy" + counter; counter += 1; }
+  const rows = (source.rows || []).map(row => normalizeRow(row.slice())
+    .map(value => (base ? String(value).split(base).join(candidate) : value)));
+  rows.forEach(row => {
+    if (row[1] === "folder_prep") row[2] = candidate;
+  });
+  scriptCases.splice(ci + 1, 0, { no: candidate, rows });
+  afterScriptStructureChange();
+}
+function syncCaseRunDir(ci) {
+  const dir = caseRunDir(ci);
+  (scriptCases[ci].rows || []).forEach(row => { row[0] = dir; });
+  afterScriptStructureChange();
+}
+function moveStep(ci, ri, delta) {
+  const rows = scriptCases[ci].rows;
+  const target = ri + delta;
+  if (!rows || target < 0 || target >= rows.length) return;
+  const [row] = rows.splice(ri, 1);
+  rows.splice(target, 0, row);
+  afterScriptStructureChange();
+}
+function newStepRow() { return ["", "run", "", "", "", "", ""]; }
+function afterScriptStructureChange() {
+  inpPickerState = {};
+  renderScript();
+}
+function delCase(ci) {
+  if (!confirm("删除该用例?")) return;
+  scriptCases.splice(ci, 1);
+  afterScriptStructureChange();
+}
+function insertStep(ci, ri) {
+  const index = Math.max(0, Math.min(Number(ri), scriptCases[ci].rows.length));
+  const row = newStepRow();
+  row[0] = caseRunDir(ci);
+  scriptCases[ci].rows.splice(index, 0, row);
+  afterScriptStructureChange();
+}
+function copyStep(ci, ri) {
+  const source = scriptCases[ci].rows[ri];
+  if (!source) return;
+  const copy = normalizeRow(source.slice());
+  if (!String(copy[0] || "").trim()) copy[0] = caseRunDir(ci);
+  scriptCases[ci].rows.splice(ri + 1, 0, copy);
+  afterScriptStructureChange();
+}
+function addStep(ci, action) {
+  const row = newStepRow();
+  row[0] = caseRunDir(ci);
+  if (action) {
+    row[1] = action;
+    prefillStep(ci, row, action);
+  }
+  scriptCases[ci].rows.push(row);
+  afterScriptStructureChange();
+}
+function delStep(ci, ri) { scriptCases[ci].rows.splice(ri, 1); afterScriptStructureChange(); }
+function scriptIssues() {
+  const issues = [];
+  scriptCases.forEach((project, ci) => {
+    const no = String(project.no || "").trim() || `第 ${ci + 1} 个用例`;
+    if (!String(project.no || "").trim()) issues.push(`${no}：缺少用例编号`);
+    const rows = project.rows || [];
+    if (!rows.length) issues.push(`${no}：没有任何步骤`);
+    if (rows.length && !rows.some(row => isFolderPrepAction(row[1]))) {
+      issues.push(`${no}：缺少 folder_prep 步骤（运行目录不会被创建）`);
+    }
+    rows.forEach((row, ri) => {
+      if (!ACTION_ORDER.includes(row[1])) {
+        issues.push(`${no} 第 ${ri + 1} 步：未知关键词「${row[1]}」`);
+        return;
+      }
+      actionFields(row[1]).forEach(field => {
+        if (field.required && !String(row[field.index] ?? "").trim()) {
+          issues.push(`${no} 第 ${ri + 1} 步（${row[1]}）：${field.label || "参数"}未填写`);
+        }
+      });
+    });
+  });
+  return issues;
+}
+function checkScript() {
+  if (!scriptCases.length) { warn("当前没有可检查的剧本，请先加载或新建剧本"); return; }
+  const issues = scriptIssues();
+  if (!issues.length) {
+    warn("");
+    const total = scriptCases.reduce((n, item) => n + (item.rows || []).length, 0);
+    alert(`剧本检查通过：${scriptCases.length} 个用例 / ${total} 个步骤。`);
+    return;
+  }
+  renderScript();
+  warn(`剧本检查发现 ${issues.length} 个问题：\n` + issues.slice(0, 12).join("\n")
+    + (issues.length > 12 ? `\n…其余 ${issues.length - 12} 个` : ""));
+}
+
+/* ---------------- 运行测试 ---------------- */
+async function startRun() {
+  const body = {
+    script: document.getElementById("runScript").value.trim(),
+    check: document.getElementById("runCheck").value.trim(),
+    exe: document.getElementById("runExe").value.trim(),
+    mode: document.querySelector('input[name=mode]:checked').value,
+    workers: parseInt(document.getElementById("runWorkers").value || "0"),
+  };
+  if (!body.script) { warn("请先选择测试剧本"); return; }
+  if (!body.check) { warn("请先选择结果表"); return; }
+  try {
+    const res = await api("/api/run", { method: "POST",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!res.ok) { warn(res.message || "启动失败"); return; }
+    warn("");
+    document.getElementById("runSummary").textContent = "任务已启动";
+    document.getElementById("resultsTable").dataset.loaded = "";
+    logAfter = 0;
+    document.getElementById("runLog").textContent = "";
+    setButtons(true);
+  } catch (e) { warn("启动失败: " + (e && e.message ? e.message : e)); }
+}
+
+async function stopRun() { await api("/api/stop", { method: "POST" }); document.getElementById("btnStop").disabled = true; }
+function setButtons(run) {
+  running = run;
+  document.getElementById("btnStart").disabled = run;
+  document.getElementById("btnStop").disabled = !run;
+  document.getElementById("btnOpenProject").disabled = run;
+  document.getElementById("btnNewProject").disabled = run;
+  document.getElementById("btnSaveCurrentProject").disabled =
+    run || !currentProject || currentProject.legacy;
+}
+function statusClass(s) {
+  if (s === "通过") return "status-ok";
+  if (["不通过/中断", "失败，已中断"].includes(s)) return "status-bad";
+  if (s === "执行中" || s === "已执行") return "status-run";
+  return "status-wait";
+}
+function renderRunCases(st) {
+  const key = st.order.map(c => c + ":" + st.steps[c].total).join("|");
+  if (key !== lastOrderKey) {
+    lastOrderKey = key;
+    const tbody = document.getElementById("runCases");
+    tbody.innerHTML = "";
+    for (const c of st.order) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${esc(c)}</td><td class="center" id="p-${esc(c)}">0/${st.steps[c].total}</td><td class="center status-wait" id="s-${esc(c)}">等待中</td>`;
+      tbody.appendChild(tr);
+    }
+    if (!st.order.length) tbody.innerHTML = `<tr><td colspan="3" class="center status-wait">尚未加载</td></tr>`;
+  }
+  for (const c of st.order) {
+    const s = st.steps[c];
+    const p = document.getElementById("p-" + CSS.escape(c)), el = document.getElementById("s-" + CSS.escape(c));
+    if (!p || !el) continue;
+    p.textContent = s.index + "/" + s.total;
+    let text = "等待中";
+    if (s.done) text = s.ok ? "已执行" : "失败，已中断";
+    else if (s.index > 0) text = "执行中";
+    if (st.summary && st.summary[c] !== undefined) text = st.summary[c] ? "通过" : "不通过/中断";
+    el.textContent = text;
+    el.className = "center " + statusClass(text);
+  }
+  if (st.summary && running) {
+    setButtons(false);
+    const passed = Object.values(st.summary).filter(Boolean).length;
+    document.getElementById("runSummary").textContent = `执行完成：通过 ${passed}/${Object.keys(st.summary).length}`;
+    document.getElementById("resultsTable").dataset.loaded = "";
+    if (document.getElementById("resultsPath").value.trim()) loadResults();
+  }
+  if (!st.running && running) setButtons(false);
+}
+
+/* ---------------- 测试结果 ---------------- */
+function ensureResultsTableBody() {
+  const table = document.getElementById("resultsTable");
+  if (!table) return null;
+  let tbody = table.querySelector("tbody");
+  if (!tbody) {
+    tbody = document.createElement("tbody");
+    table.appendChild(tbody);
+  }
+  return tbody;
+}
+
+async function loadResults(path) {
+  const p = path || document.getElementById("resultsPath").value.trim();
+  if (!p) { warn("请先选择结果表"); return; }
+  try {
+    const data = await api("/api/results?path=" + encodeURIComponent(p));
+    const normalized = data.path || p;
+    document.getElementById("resultsPath").value = normalized;
+    document.getElementById("results-file-hint").textContent = normalized;
+    const rows = data.rows || [];
+    const table = document.getElementById("resultsTable");
+    const header = rows.length ? rows[0] : ["期望值", "实际值"];
+    const body = rows.length ? rows.slice(1) : [];
+    const thead = table.querySelector("thead");
+    if (!thead) throw new Error("找不到测试结果表头");
+    thead.innerHTML = `<tr>${header.map(c => `<th>${esc(c)}</th>`).join("")}</tr>`;
+    const tb = ensureResultsTableBody();
+    if (!tb) throw new Error("找不到测试结果表格");
+    tb.innerHTML = body.map(r =>
+      `<tr>${r.map(c => `<td>${esc(c)}</td>`).join("")}</tr>`).join("");
+    document.getElementById("resultsTable").dataset.loaded = "1";
+    warn("");
+  } catch (e) { warn("加载结果失败: " + (e && e.message ? e.message : e)); }
+}
+
+/* ---------------- 关键词 ---------------- */
+let keywordCatalog = [];
+let keywordImplChoices = ["command"];
+let keywordCommandImpl = "command";
+let keywordEditingName = "";
+const KW_ROLES = ["dir", "object", "param", "target", "value"];
+const KW_ROLE_LABELS = {
+  dir: "dir（运行目录）",
+  object: "object（对象列）",
+  param: "param（参数）",
+  target: "target（检索定位）",
+  value: "value（新值）",
+};
+
+function kwImplLabel(value) {
+  if (value === keywordCommandImpl) return "自定义命令行（" + value + "）";
+  return value + "（复用内置动作）";
+}
+
+async function loadKeywords() {
+  try {
+    const data = await api("/api/keywords");
+    keywordCatalog = data.keywords || [];
+    keywordImplChoices = data.builtin_actions && data.builtin_actions.length
+      ? data.builtin_actions : ["command"];
+    keywordCommandImpl = data.command_impl || "command";
+    document.getElementById("keywordRows").innerHTML = keywordCatalog.map(k => {
+      const ops = k.custom
+        ? `<div class="row-actions"><button data-kw-name="${esc(k.name)}"
+             onclick="openKeywordEditor(this.dataset.kwName)">编辑</button>
+             <button class="danger" data-kw-name="${esc(k.name)}"
+             onclick="deleteKeyword(this.dataset.kwName)">删除</button></div>`
+        : `<span class="status-pill">只读</span>`;
+      const source = k.custom ? "自定义" : "内置";
+      return `<tr><td><b>${esc(k.name)}</b></td><td>${esc(k.object)}</td><td>${esc(k.params)}</td><td>${esc(k.desc)}</td><td>${esc(source)}</td><td>${ops}</td></tr>`;
+    }).join("");
+    const keywordFileHint = document.getElementById("keywordFileHint");
+    if (keywordFileHint) {
+      const file = data.keyword_file || "keywords.json";
+      keywordFileHint.textContent = `自定义关键词保存在当前项目的 ${file}，随项目一起保存和打开。`;
+    }
+    const softwareRows = document.getElementById("softwareRows");
+    if (softwareRows) softwareRows.innerHTML = (data.software || []).map(s =>
+      `<tr><td><b>${esc(s.key)}</b></td><td>${esc(s.display_name)}</td><td>${s.available ? "可用" : "预留 / 未实现"}</td><td>${esc(s.description)}</td></tr>`).join("");
+  } catch (e) { warn("加载关键词失败: " + e.message); }
+}
+
+function defaultKeywordFields() {
+  return [
+    { index: 0, role: "dir", label: "运行目录", placeholder: "运行目录", required: true },
+    { index: 2, role: "object", label: "可执行程序", placeholder: "例如：solver.exe", required: true },
+    { index: 3, role: "param", label: "参数 1", placeholder: "例如：input.txt", required: false },
+  ];
+}
+
+function keywordFieldRowHtml(field) {
+  const index = Number(field.index);
+  const indexOptions = [0, 1, 2, 3, 4, 5, 6]
+    .map(i => `<option value="${i}"${i === index ? " selected" : ""}>${i}</option>`).join("");
+  const role = String(field.role || "");
+  const roleOptions = KW_ROLES
+    .map(r => `<option value="${r}"${r === role ? " selected" : ""}>${esc(KW_ROLE_LABELS[r] || r)}</option>`).join("");
+  return `<tr>
+    <td><select data-kw="index">${indexOptions}</select></td>
+    <td><select data-kw="role">${roleOptions}</select></td>
+    <td><input type="text" data-kw="label" maxlength="40" value="${esc(field.label || "")}" placeholder="列标题"></td>
+    <td><input type="text" data-kw="placeholder" maxlength="80" value="${esc(field.placeholder || "")}" placeholder="单元格提示文字"></td>
+    <td class="center"><input type="checkbox" data-kw="required"${field.required ? " checked" : ""}></td>
+    <td class="center"><button type="button" onclick="this.closest('tr').remove()">删除</button></td>
+  </tr>`;
+}
+
+function renderKeywordFieldRows(fields) {
+  const host = document.getElementById("kwFieldRows");
+  if (!host) return;
+  host.innerHTML = (fields && fields.length ? fields : defaultKeywordFields())
+    .map(keywordFieldRowHtml).join("");
+}
+
+function addKeywordFieldRow() {
+  const host = document.getElementById("kwFieldRows");
+  if (!host) return;
+  const used = new Set([...host.querySelectorAll('select[data-kw="index"]')]
+    .map(sel => Number(sel.value)));
+  const next = [1, 3, 4, 5, 6].find(i => !used.has(i));
+  if (next === undefined) { warn("字段最多 7 列（0~6），已经全部使用"); return; }
+  const role = next === 0 ? "dir" : next === 2 ? "object" : "param";
+  host.insertAdjacentHTML("beforeend", keywordFieldRowHtml({
+    index: next,
+    role,
+    label: next === 1 || next >= 3 ? `参数 ${Math.max(1, next - 2)}` : "字段",
+    placeholder: "",
+    required: false,
+  }));
+}
+
+function onKeywordImplChange() {
+  const impl = document.getElementById("kwImpl").value;
+  const field = document.getElementById("kwCommandField");
+  if (field) field.style.display = impl === keywordCommandImpl ? "" : "none";
+}
+
+function openKeywordEditor(name) {
+  const target = String(name || "").trim();
+  const spec = target ? keywordCatalog.find(k => k.name === target && k.custom) : null;
+  if (target && !spec) { warn("内置关键词不可编辑，请通过「新增关键词」扩展"); return; }
+  keywordEditingName = spec ? spec.name : "";
+  document.getElementById("keywordEditorTitle").textContent =
+    spec ? `编辑关键词：${spec.name}` : "新增关键词";
+  document.getElementById("kwName").value = spec ? spec.name : "";
+  const implSelect = document.getElementById("kwImpl");
+  implSelect.innerHTML = keywordImplChoices
+    .map(v => `<option value="${esc(v)}">${esc(kwImplLabel(v))}</option>`).join("");
+  implSelect.value = spec ? (spec.impl || keywordCommandImpl) : keywordCommandImpl;
+  document.getElementById("kwCommand").value = spec ? (spec.command || "") : "";
+  document.getElementById("kwObject").value = spec ? (spec.object || "") : "";
+  document.getElementById("kwParams").value = spec ? (spec.params || "") : "";
+  document.getElementById("kwDesc").value = spec ? (spec.desc || "") : "";
+  renderKeywordFieldRows(spec ? spec.fields : null);
+  onKeywordImplChange();
+  document.getElementById("keywordEditorModal").hidden = false;
+  warn("");
+}
+
+function closeKeywordEditor() {
+  document.getElementById("keywordEditorModal").hidden = true;
+  keywordEditingName = "";
+}
+
+function collectKeywordFields() {
+  return [...document.querySelectorAll("#kwFieldRows tr")].map(tr => ({
+    index: Number(tr.querySelector('select[data-kw="index"]').value),
+    role: tr.querySelector('select[data-kw="role"]').value,
+    label: tr.querySelector('input[data-kw="label"]').value.trim(),
+    placeholder: tr.querySelector('input[data-kw="placeholder"]').value.trim(),
+    required: tr.querySelector('input[data-kw="required"]').checked,
+  })).filter(field => field.label);
+}
+
+async function saveKeyword(event) {
+  if (event) event.preventDefault();
+  const keyword = {
+    name: document.getElementById("kwName").value.trim(),
+    impl: document.getElementById("kwImpl").value,
+    command: document.getElementById("kwCommand").value.trim(),
+    object: document.getElementById("kwObject").value.trim(),
+    params: document.getElementById("kwParams").value.trim(),
+    desc: document.getElementById("kwDesc").value.trim(),
+    fields: collectKeywordFields(),
+  };
+  if (!keyword.fields.length) { warn("请至少填写一个字段"); return; }
+  try {
+    await api("/api/keywords/save", {
+      method: "POST",
+      body: JSON.stringify({ keyword, original_name: keywordEditingName }),
+    });
+    closeKeywordEditor();
+    keywordSpecsPromise = null;
+    await loadKeywords();
+    await loadActionSpecs(true);
+    warn("关键词已保存: " + keyword.name);
+  } catch (e) {
+    warn("保存关键词失败: " + (e && e.message ? e.message : e));
+  }
+}
+
+async function deleteKeyword(name) {
+  const target = String(name || "").trim();
+  if (!target) return;
+  if (!confirm(`确定删除自定义关键词 ${target}？已经使用它的剧本行需要手动修改。`)) return;
+  try {
+    await api("/api/keywords/delete", {
+      method: "POST",
+      body: JSON.stringify({ name: target }),
+    });
+    keywordSpecsPromise = null;
+    await loadKeywords();
+    await loadActionSpecs(true);
+    warn("已删除关键词: " + target);
+  } catch (e) {
+    warn("删除关键词失败: " + (e && e.message ? e.message : e));
+  }
+}
+
+/* ---------------- 文件浏览 ---------------- */
+async function refreshFiles(path) {
+  try {
+    const data = await api("/api/files" + (path ? "?path=" + encodeURIComponent(path) : ""));
+    if (data.error) { warn(data.error); return; }
+    warn("");
+    filePath = data.path;
+    document.getElementById("filePath").textContent = "当前位置: " + data.path;
+    const rows = [];
+    if (data.parent !== null && data.parent !== undefined)
+      rows.push(`<tr onclick="refreshFiles(${JSON.stringify(data.parent)})"><td class="dir">..</td><td class="center">目录</td><td></td></tr>`);
+    for (const e of data.entries) {
+      const nm = data.path === "." ? e.name : data.path.replace(/\\/g, "/") + "/" + e.name;
+      rows.push(`<tr onclick="${e.dir ? `refreshFiles(${JSON.stringify(nm)})` : ""}">
+        <td class="${e.dir ? "dir" : ""}">${esc(e.name)}</td>
+        <td class="center">${e.dir ? "目录" : "文件"}</td>
+        <td class="center">${fmtSize(e.size)}</td></tr>`);
+    }
+    document.getElementById("fileRows").innerHTML = rows.join("");
+  } catch (e) { warn("浏览失败: " + e.message); }
+}
+function navFiles() { refreshFiles(null); }
+
+/* ---------------- 日志 ---------------- */
+async function loadLogfile() {
+  try {
+    const data = await api("/api/logfile?lines=400");
+    const box = document.getElementById("logView");
+    box.textContent = data.text;
+    box.scrollTop = box.scrollHeight;
+  } catch (e) { warn("读取日志失败: " + e.message); }
+}
+async function clearLogfile() {
+  if (!window.confirm("确定清空当前项目的运行日志吗？")) return;
+  try {
+    await api("/api/logs/clear", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    document.getElementById("logView").textContent = "";
+    warn("");
+  } catch (e) {
+    warn("清空日志失败: " + e.message);
+  }
+}
+function toggleLogAuto() {
+  if (logTimer) { clearInterval(logTimer); logTimer = null; }
+  if (document.getElementById("logAuto").checked) logTimer = setInterval(loadLogfile, 2000);
+}
+
+/* ---------------- 配置 ---------------- */
+async function loadConfig() {
+  try {
+    const data = await api("/api/config");
+    const host = document.getElementById("cfgRows");
+    host.innerHTML = "";
+    for (const [k, v] of Object.entries(data.config)) {
+      const val = Array.isArray(v) ? JSON.stringify(v) : v;
+      const row = document.createElement("div");
+      row.className = "cfg-row";
+      row.innerHTML = `<span class="k">${esc(k)}</span><input type="text" data-key="${esc(k)}" value="${esc(val)}">`;
+      host.appendChild(row);
+    }
+    document.getElementById("runScript").value = data.config.dataConfigPath || "";
+    document.getElementById("runCheck").value = data.config.checkConfigPath || "";
+    document.getElementById("scriptPath").value = data.config.dataConfigPath || "";
+    document.getElementById("resultsPath").value = data.config.checkConfigPath || "";
+    document.getElementById("runExe").value = data.exe || "";
+    if (!document.getElementById("relapInputPath").value.trim()) {
+      document.getElementById("relapInputPath").value = "inputs\\CheckSGInput.txt";
+    }
+    if (data.config.runMode) document.querySelector(`input[name=mode][value=${data.config.runMode}]`).checked = true;
+    if (data.config.maxWorkers !== undefined) document.getElementById("runWorkers").value = data.config.maxWorkers;
+    warn("");
+    return true;
+  } catch (e) { warn("加载配置失败: " + e.message); return false; }
+}
+async function saveConfig() {
+  try {
+    const cfg = await api("/api/config");
+    const out = {};
+    document.querySelectorAll("#cfgRows input").forEach(inp => {
+      let v = inp.value;
+      if (v.startsWith("[")) { try { v = JSON.parse(v); } catch (_) {} }
+      out[inp.dataset.key] = v;
+    });
+    await api("/api/config/save", { method: "POST",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ config: out }) });
+    warn(""); alert("配置已保存");
+    loadConfig();
+  } catch (e) { warn("保存配置失败: " + e.message); }
+}
+
+/* ---------------- 主循环 ---------------- */
+async function poll() {
+  try {
+    const st = await api("/api/status");
+    renderRunCases(st);
+    const lg = await api("/api/logs?after=" + logAfter);
+    if (lg.lines.length) {
+      logAfter = lg.lines[lg.lines.length - 1].seq;
+      const box = document.getElementById("runLog");
+      box.textContent += lg.lines.map(l => l.text).join("\n") + "\n";
+      box.scrollTop = box.scrollHeight;
+    }
+  } catch (e) { /* backend not ready */ }
+  setTimeout(poll, 700);
+}
+
+(async function init() {
+  const tabs = document.getElementById("tabs");
+  for (const [id, label] of TABS) {
+    const t = document.createElement("div");
+    t.className = "tab"; t.dataset.id = id; t.textContent = label;
+    t.onclick = () => switchTab(id);
+    tabs.appendChild(t);
+  }
+  document.addEventListener("keydown", event => {
+    if (event.key !== "Escape") return;
+    if (!document.getElementById("softwareCreateModal").hidden) {
+      closeSoftwareCreate();
+    } else if (!document.getElementById("softwareImportModal").hidden) {
+      closeSoftwareImport();
+    } else if (!document.getElementById("saveProjectModal").hidden) {
+      closeSaveProject();
+    } else if (!document.getElementById("deleteProjectModal").hidden) {
+      closeDeleteProject();
+    }
+  });
+  try {
+    if (!hasTauri) {
+      document.getElementById("warn").style.display = "block";
+      document.getElementById("warn").textContent = "未检测到 Tauri 环境，请先手动启动后端: python -m api.server --port 18080";
+      PORT = "18080";
+    } else {
+      PORT = String(await invoke("get_port"));
+    }
+    let backendReady = false;
+    for (let i = 0; i < 40; i++) {
+      if (await loadProjectCatalog(true)) {
+        backendReady = true;
+        break;
+      }
+      await new Promise(r => setTimeout(r, 500));
+    }
+    if (!backendReady) throw new Error("后端服务未在预期时间内就绪");
+    resetProjectViews();
+    if (await loadConfig()) {
+      if (document.getElementById("scriptPath").value) {
+        loadScript(document.getElementById("scriptPath").value);
+      }
+    }
+    const hasStandaloneProject = projectCatalog.some(project => !project.legacy);
+    switchTab(hasStandaloneProject ? "overview" : "projects");
+  } catch (e) {
+    warn("后端启动失败: " + (e && e.message ? e.message : e));
+    switchTab("projects");
+  }
+  poll();
+})();
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,62 @@
+# Distribution and build output
+/dist/
+/prisma/build/
+/prisma/tauri-app/src-tauri/target/
+/prisma/tauri-app/src-tauri/gen/
+/prisma/packaging/vendor/
+
+# Python environments and caches
+**/.venv/
+**/venv/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Runtime projects and logs
+/prisma/projects/
+/prisma/log/
+*.log
+
+# Legacy runtime inputs: keep text templates, exclude third-party programs
+/prisma/inputs/Almond
+/prisma/inputs/tpfh2o
+/prisma/inputs/relap5/
+/prisma/inputs/nusolsyslmr/
+
+# Imported software binaries
+/prisma/software-library/*/bin/
+*.exe
+*.dll
+*.pyd
+*.so
+*.dylib
+*.a
+*.lib
+*.o
+*.obj
+*.rlib
+*.rmeta
+
+# Local packaging and archives
+*.7z
+*.rar
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.sha256
+
+# OS, editor, and shortcut files
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.lnk
+*.swp
+*.tmp
+
+# Local environment overrides
+.env
+.env.*
+!.env.example

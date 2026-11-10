@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+
+APP_DIR=$(CDPATH= cd -- "$(dirname -- "$(readlink -f -- "$0")")" && pwd)
+APP_ENTRY="$APP_DIR/resources/app"
+
+if [ ! -x "$APP_DIR/electron" ] || [ ! -f "$APP_ENTRY/main.js" ]; then
+  echo "Prisma installation is incomplete: $APP_DIR" >&2
+  exit 1
+fi
+
+exec "$APP_DIR/electron" --no-sandbox "$APP_ENTRY" "$@"

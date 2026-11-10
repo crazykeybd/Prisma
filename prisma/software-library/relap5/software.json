@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "software_key": "relap5",
+  "display_name": "RELAP5",
+  "version": "RBIC/3.2",
+  "executable": "bin/relap5.exe",
+  "templates": [
+    "templates/CheckSGInput.txt",
+    "templates/mini.i"
+  ],
+  "imported_at": "2026-11-03T07:46:12+00:00",
+  "source_name": "relap5"
+}

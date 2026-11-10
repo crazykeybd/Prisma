@@ -1,0 +1,21 @@
+---
+description: 仅在新增功能需要重新生成可执行文件才能使用时执行构建
+alwaysApply: true
+---
+
+# 按需重新构建可执行文件
+
+- 仅当本次新增功能必须使用重新生成的可执行文件才能运行、交付或验收时，才重新构建。
+- 如果通过现有开发入口即可验证和使用本次改动，或者改动不要求交付新的可执行文件，则不执行构建。
+- 满足构建条件时，在项目根目录执行完整构建：
+
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File .\prisma\packaging\build_installer.ps1
+  ```
+
+- 禁止使用 `-SkipCargoBuild`，否则会复用旧的 `Prisma.exe`，不满足生成新可执行文件的要求。
+- 仅在执行构建后确认并报告以下产物：
+  - `prisma\tauri-app\src-tauri\target\release\Prisma.exe`
+  - `dist\Prisma-Setup-<version>-x64.exe`
+  - `dist\Prisma-Setup-<version>-x64.exe.sha256`
+- 构建失败时，应修复问题，或明确报告失败原因和未生成的产物。

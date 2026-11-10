@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "software_key": "nusolsyslmr",
+  "display_name": "NUSOL-SYSLMR",
+  "version": "NUSOLSYS-LMR",
+  "executable": "bin/nusolsyslmr.exe",
+  "templates": [
+    "templates/indta.i"
+  ],
+  "imported_at": "2026-11-04T01:41:09+00:00",
+  "source_name": "bin"
+}

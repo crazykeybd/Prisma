@@ -1,0 +1,12 @@
+=  RELAP5/MOD3.3 sample deck (placeholder)
+*
+*  Problem 2: small break loss of coolant (demo placeholder)
+*
+100 new transnt
+101 run
+102 si  0.0
+103 si  0.1
+105 si  10.0
+110 mflowj 100 11000000
+120 tmdpvol 150 15000000 560.0 0.0
+.
