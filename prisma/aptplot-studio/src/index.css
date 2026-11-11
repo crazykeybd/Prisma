@@ -1,0 +1,126 @@
+:root {
+  --bg: #e8ece7;
+  --surface: #f5f7f3;
+  --surface-raised: #fbfcf9;
+  --surface-sunken: #edf1ec;
+  --surface-strong: #ffffff;
+  --ink: #17211e;
+  --ink-soft: #3c4a46;
+  --muted: #6f7d77;
+  --muted-light: #93a099;
+  --line: #d6ddd7;
+  --line-strong: #bac5be;
+  --accent: #0c665a;
+  --accent-hover: #084f46;
+  --accent-soft: #dbeae5;
+  --accent-ink: #06483f;
+  --signal: #d95b35;
+  --signal-soft: #f8e4dc;
+  --danger: #b74331;
+  --danger-soft: #f8e6e2;
+  --shadow-sm: 0 1px 2px rgba(23, 33, 30, 0.05);
+  --shadow-md: 0 12px 32px rgba(23, 33, 30, 0.13);
+  --sans: 'IBM Plex Sans Variable', 'Noto Sans SC', 'Microsoft YaHei',
+    sans-serif;
+  --mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+
+  font-family: var(--sans);
+  color: var(--ink);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.5;
+  letter-spacing: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  letter-spacing: 0;
+}
+
+button {
+  color: inherit;
+}
+
+button,
+select,
+input[type='range'],
+input[type='checkbox'] {
+  cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid rgba(12, 102, 90, 0.48);
+  outline-offset: 2px;
+}
+
+::selection {
+  color: var(--ink);
+  background: #c8ddd5;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  min-height: 32px;
+  background: #c5cec8;
+  border: 3px solid transparent;
+  border-radius: 99px;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #aab7b0;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
