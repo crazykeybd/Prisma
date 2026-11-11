@@ -103,7 +103,7 @@ projects/
 - `run_prisma`：执行框架
 - `software`：被测软件适配器、别名、注册表和软件库实现
 - `software-library`：集中保存被测程序、运行依赖和输入模板
-- `aptplot-studio`：数据绘图子功能的 Vite/React 源码
+- `plot-studio`：数据绘图子功能的 Vite/React 源码
 - `tauri-app`：Tauri 桌面壳和静态前端
 
 ## Tauri 桌面界面
@@ -116,21 +116,21 @@ projects/
 - 真实运行参数由项目 `config.yaml` 的 `runArgs` 控制，支持 `{input}`、`{output}` 和 `{exe}` 占位符。
 - 故障排查：启动问题见 `prisma/gui_debug.log`；WebView2 运行数据默认位于 exe 旁的 `webview2-data/`。
 
-## 数据绘图（AptPlot）
+## 数据绘图（Plot）
 
-桌面界面顶部“数据绘图”页集成了 AptPlot Workbench，可导入 CSV、TSV、JSON 和 RSTPLOT 数据，进行多曲线绘图、坐标设置、统计查看和结果导出。该页面以静态子应用方式嵌入主界面，不依赖 Python 后端；首次打开页面时才加载，避免影响启动速度。
+桌面界面顶部“数据绘图”页集成了 Plot Workbench，可导入 CSV、TSV、JSON 和 RSTPLOT 数据，进行多曲线绘图、坐标设置、统计查看和结果导出。该页面以静态子应用方式嵌入主界面，不依赖 Python 后端；首次打开页面时才加载，避免影响启动速度。
 
-AptPlot 源码位于 `aptplot-studio/`，构建产物部署到 `tauri-app/ui/aptplot/`。Tauri 打包和 CentOS 7.9 打包都会整体携带 `tauri-app/ui/`，因此发布包无需单独安装 Node.js。修改源码后按以下命令重新构建：
+Plot 源码位于 `plot-studio/`，构建产物部署到 `tauri-app/ui/plot/`。Tauri 打包和 CentOS 7.9 打包都会整体携带 `tauri-app/ui/`，因此发布包无需单独安装 Node.js。修改源码后按以下命令重新构建：
 
 ```bash
-cd aptplot-studio
+cd plot-studio
 npm ci
 npm run build
-rm -rf ../tauri-app/ui/aptplot
-cp -R dist ../tauri-app/ui/aptplot
+rm -rf ../tauri-app/ui/plot
+cp -R dist ../tauri-app/ui/plot
 ```
 
-`aptplot-studio/node_modules/` 和 `aptplot-studio/dist/` 是本地构建产物，不属于交付源码；打包前应保留已部署的 `tauri-app/ui/aptplot/`。
+`plot-studio/node_modules/` 和 `plot-studio/dist/` 是本地构建产物，不属于交付源码；打包前应保留已部署的 `tauri-app/ui/plot/`。
 
 ## 多软件适配接口
 

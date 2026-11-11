@@ -132,7 +132,7 @@ export function PlotCanvas({
         tickcolor: '#9ca8a1',
         automargin: true,
       },
-      uirevision: 'aptplot-workbench',
+      uirevision: 'plot-workbench',
       dragmode: 'pan',
     }
 
@@ -143,7 +143,7 @@ export function PlotCanvas({
       scrollZoom: true,
       toImageButtonOptions: {
         format: 'png',
-        filename: 'aptplot-chart',
+        filename: 'plot-chart',
         scale: 2,
       },
     }

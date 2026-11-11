@@ -72,7 +72,7 @@ import type {
 } from './types'
 import './App.css'
 
-const STORAGE_KEY = 'aptplot-workbench-project-v1'
+const STORAGE_KEY = 'plot-workbench-project-v1'
 
 const DEFAULT_CHART: ChartSettings = {
   title: '稳压器瞬态响应',
@@ -163,7 +163,7 @@ function safeFilename(value: string) {
       .trim()
       .replace(/[\\/:*?"<>|]+/g, '-')
       .replace(/\s+/g, '-')
-      .slice(0, 80) || 'aptplot-project'
+      .slice(0, 80) || 'plot-project'
   )
 }
 
@@ -571,7 +571,7 @@ function App() {
     }
     downloadText(
       JSON.stringify(snapshot, null, 2),
-      `${safeFilename(project.name)}.aptproj.json`,
+      `${safeFilename(project.name)}.plotproj.json`,
       'application/json;charset=utf-8',
     )
     notify('项目文件已保存。', 'success')
@@ -607,7 +607,7 @@ function App() {
           !Array.isArray(parsed.datasets) ||
           !parsed.chart
         ) {
-          throw new Error('不是有效的 AptPlot Workbench 项目文件。')
+          throw new Error('不是有效的 Plot Workbench 项目文件。')
         }
         setProject(parsed)
         notify('项目已打开。', 'success')
@@ -732,7 +732,7 @@ function App() {
             <LineChart size={19} strokeWidth={2.2} />
           </span>
           <div>
-            <strong>AptPlot Workbench</strong>
+            <strong>Plot Workbench</strong>
             <span>核热工数据分析</span>
           </div>
         </div>
@@ -1546,7 +1546,7 @@ function App() {
       <input
         ref={projectInputRef}
         type="file"
-        accept=".json,.aptproj"
+        accept=".json,.plotproj"
         hidden
         onChange={openProjectFile}
       />

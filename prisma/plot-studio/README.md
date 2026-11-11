@@ -1,4 +1,4 @@
-# AptPlot Workbench
+# Plot Workbench
 
 面向核工程与热工水力数据后处理的本地 Web 工作台。它参考了 APT PlottingTools 的常见绘图流程，但采用独立的 React 实现，不包含或调用原软件代码。
 
@@ -10,7 +10,7 @@
 - 调整标题、轴标签、线性/对数尺度、网格、图例、数据点、平滑与线宽。
 - 对当前曲线执行移动平均、导数、积分、归一化、FFT 和线性回归。
 - 查看数据表与统计摘要，导出 PNG、SVG、CSV、TSV 和项目 JSON。
-- 项目自动保存在浏览器本地，也可保存为 `.aptproj.json` 文件后再次打开。
+- 项目自动保存在浏览器本地，也可保存为 `.plotproj.json` 文件后再次打开。
 
 首次打开会自动载入一组稳压器瞬态示例数据。导入文件时，第一行通常作为列名；数值列会被自动识别，缺失值不会参与绘图与分析。
 
@@ -41,6 +41,6 @@ npm run preview
 - 支持再启动后的多段变量目录，同一变量会按段顺序合并。
 - 文件扫描阶段只建立记录索引，读取阶段只加载用户选择的变量。
 
-目前按 RELAP5 的 `REAL*4` 绘图记录和 8 字节整数对布局实现，尚未用所有 RELAP5 版本的真实输出逐一验收。MELCOR、TRACE、COBRA-TF、PARCS、CONTAIN 或 FRAPCON 的原生输出仍不直接解析，原 AptPlot 的完整脚本语言也不支持。
+目前按 RELAP5 的 `REAL*4` 绘图记录和 8 字节整数对布局实现，尚未用所有 RELAP5 版本的真实输出逐一验收。MELCOR、TRACE、COBRA-TF、PARCS、CONTAIN 或 FRAPCON 的原生输出仍不直接解析，原 APT PlottingTools 的完整脚本语言也不支持。
 
 数据仅在当前浏览器中处理，不会上传到服务器。

@@ -136,8 +136,8 @@
   .logbox { height:clamp(260px,42vh,620px); overflow:auto; background:#101820; color:#cde3f5;
     border-radius:5px; padding:12px 14px; font-family:Consolas,"Cascadia Mono",monospace;
     font-size:12px; line-height:1.65; white-space:pre-wrap; overflow-wrap:anywhere; }
-  #page-aptplot { max-width:none; height:clamp(500px,calc(100vh - 182px),1100px); }
-  .aptplot-frame { display:block; width:100%; height:100%; border:1px solid var(--line);
+  #page-plot { max-width:none; height:clamp(500px,calc(100vh - 182px),1100px); }
+  .plot-frame { display:block; width:100%; height:100%; border:1px solid var(--line);
     border-radius:7px; background:#e8ece7; box-shadow:var(--shadow); }
   .relap-input-area { width:100%; min-height:168px; resize:vertical; line-height:1.55; tab-size:8; }
   .relap-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:9px; }
@@ -405,8 +405,8 @@
     .relap-table-wrap { max-height:520px; }
     .relap-actions .filename { width:100%; }
     .logbox { height:clamp(280px,50vh,520px); }
-    #page-aptplot { height:max(560px,calc(100dvh - 238px)); }
-    .aptplot-frame { border-radius:6px; }
+    #page-plot { height:max(560px,calc(100dvh - 238px)); }
+    .plot-frame { border-radius:6px; }
   }
   @media (prefers-reduced-motion: reduce) {
     * { transition:none !important; }
@@ -709,9 +709,9 @@
   </div>
 
   <!-- ============ 数据绘图 ============ -->
-  <div id="page-aptplot" class="page" style="display:none">
-    <iframe id="aptPlotFrame" class="aptplot-frame" data-src="aptplot/index.html"
-      title="AptPlot 数据绘图工作台"></iframe>
+  <div id="page-plot" class="page" style="display:none">
+    <iframe id="plotFrame" class="plot-frame" data-src="plot/index.html"
+      title="Plot 数据绘图工作台"></iframe>
   </div>
 
   <!-- ============ 关键词列表 ============ -->
@@ -1097,7 +1097,7 @@ const hasTauri = typeof window.__TAURI__ !== "undefined";
 const TABS = [
   ["projects", "项目"], ["software", "软件库"], ["overview", "总览"], ["relap", "输入卡"],
   ["script", "测试剧本"], ["run", "运行测试"], ["results", "测试结果"],
-  ["aptplot", "数据绘图"], ["keywords", "关键词列表"], ["files", "文件浏览"],
+  ["plot", "数据绘图"], ["keywords", "关键词列表"], ["files", "文件浏览"],
   ["log", "日志"], ["config", "配置"],
 ];
 
@@ -1924,8 +1924,8 @@ function switchTab(id) {
   if (id === "log") { loadLogfile(); toggleLogAuto(); }
   if (id === "keywords") loadKeywords();
   if (id === "results" && !document.getElementById("resultsTable").dataset.loaded) loadResults();
-  if (id === "aptplot") {
-    const frame = document.getElementById("aptPlotFrame");
+  if (id === "plot") {
+    const frame = document.getElementById("plotFrame");
     if (frame && !frame.getAttribute("src")) frame.src = frame.dataset.src;
   }
   if (id === "config") loadConfig();
