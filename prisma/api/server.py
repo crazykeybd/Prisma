@@ -25,6 +25,7 @@ from common.input_deck_parser import (
 )
 from common.run_context import RunContext
 from common.relap_input_parser import parse_relap_input_file, parse_relap_input_text
+from common.results import ExecutionSummary, utc_now
 from common.util_prisma import (
     CONFIG_PATH,
     ROOT,
@@ -69,6 +70,12 @@ STATE = {
     "steps": {},
     "summary": None,
     "project_id": None,
+    "run_id": None,
+    "reports": None,
+    "report_directory": None,
+    "html_report": None,
+    "exit_code": None,
+    "execution_summary": None,
 }
 LOGS = deque(maxlen=2000)
 LOG_SEQ = 0
@@ -184,6 +191,12 @@ def _reset_run_state(project: Project) -> None:
     STATE["steps"] = {}
     STATE["summary"] = None
     STATE["project_id"] = project.id
+    STATE["run_id"] = None
+    STATE["reports"] = None
+    STATE["report_directory"] = None
+    STATE["html_report"] = None
+    STATE["exit_code"] = None
+    STATE["execution_summary"] = None
 
 
 def _assert_project_management_available(action: str) -> None:
@@ -517,6 +530,12 @@ def start_run(script, check, exe, mode, workers):
                           for c in order}
         STATE["summary"] = None
         STATE["project_id"] = project.id
+        STATE["run_id"] = None
+        STATE["reports"] = None
+        STATE["report_directory"] = None
+        STATE["html_report"] = None
+        STATE["exit_code"] = None
+        STATE["execution_summary"] = None
         init_log(root / "log")
 
     def progress(case_no, index, total, ok):
@@ -528,18 +547,37 @@ def start_run(script, check, exe, mode, workers):
             step["done"] = (not ok) or index >= total
 
     def worker():
+        started_at = utc_now()
         try:
-            results = execute_testcase(
+            summary = execute_testcase(
                 file_path=str(script_path), max_workers=int(workers or 0),
                 stop_event=STATE["stop_event"], progress_cb=progress,
                 project_root=root,
                 config_path=config_path,
+                return_summary=True,
             )
         except Exception as exc:
-            results = {}
             logging.getLogger("prisma").exception("run failed: %s", exc)
+            finished_at = utc_now()
+            summary = ExecutionSummary(
+                results={},
+                outcomes={},
+                run_id=f"api-error-{finished_at}",
+                started_at=started_at,
+                finished_at=finished_at,
+                fatal_error=f"{type(exc).__name__}: {exc}",
+            )
         finally:
-            STATE["summary"] = results
+            reports = summary.reports.to_dict() if summary.reports else None
+            STATE["summary"] = dict(summary.results)
+            STATE["run_id"] = summary.run_id
+            STATE["reports"] = reports
+            STATE["report_directory"] = (
+                reports.get("directory") if reports else None
+            )
+            STATE["html_report"] = reports.get("html") if reports else None
+            STATE["exit_code"] = summary.exit_code
+            STATE["execution_summary"] = summary.to_dict()
             STATE["running"] = False
 
     threading.Thread(target=worker, daemon=True).start()
@@ -631,7 +669,13 @@ class Handler(BaseHTTPRequestHandler):
             elif url.path == "/api/status":
                 self._send({"running": STATE["running"], "order": STATE["order"],
                             "steps": STATE["steps"], "summary": STATE["summary"],
-                            "project_id": STATE["project_id"]})
+                            "project_id": STATE["project_id"],
+                            "run_id": STATE["run_id"],
+                            "reports": STATE["reports"],
+                            "report_directory": STATE["report_directory"],
+                            "html_report": STATE["html_report"],
+                            "exit_code": STATE["exit_code"],
+                            "execution_summary": STATE["execution_summary"]})
             elif url.path == "/api/input/formats":
                 self._send({"formats": list(FORMAT_PROFILES.values())})
             elif url.path == "/api/input/search":
@@ -720,6 +764,7 @@ class Handler(BaseHTTPRequestHandler):
                     str(data.get("project_id") or ""),
                     data.get("name"),
                     data.get("description") or "",
+                    data.get("software_key"),
                 )
                 self._send({
                     "ok": True,
@@ -773,6 +818,29 @@ class Handler(BaseHTTPRequestHandler):
                     raise ProjectError("任务运行期间不能新增被测软件")
                 try:
                     definition = SOFTWARE_LIBRARY.create_custom_definition(data)
+                except SoftwareLibraryError as exc:
+                    raise ProjectError(str(exc)) from exc
+                self._send({
+                    "ok": True,
+                    "definition": definition,
+                    "software": next(
+                        (
+                            item for item in software_catalog(SOFTWARE_LIBRARY)
+                            if item["key"] == definition["software_key"]
+                        ),
+                        None,
+                    ),
+                })
+            elif path == "/api/software/update":
+                if STATE["running"]:
+                    raise ProjectError("任务运行期间不能修改被测软件配置")
+                software_key = str(data.get("software_key") or "").strip()
+                try:
+                    adapter = get_adapter(software_key, SOFTWARE_LIBRARY)
+                except SoftwareAdapterError as exc:
+                    raise ProjectError(str(exc)) from exc
+                try:
+                    definition = SOFTWARE_LIBRARY.update_definition(adapter, data)
                 except SoftwareLibraryError as exc:
                     raise ProjectError(str(exc)) from exc
                 self._send({

@@ -14,6 +14,13 @@ class ReservedSoftwareAdapter:
         self.description = description
         self.status = "reserved"
         self.executable_name = ""
+        self.arguments = ("{input}",)
+        self.input_filename = "input.txt"
+        self.input_filenames = ("input.txt",)
+        self.support_files = ()
+        self.output_filename = "output.txt"
+        self.timeout_sec = 1800
+        self.version = ""
 
     def _not_implemented(self) -> None:
         raise AdapterNotImplementedError(

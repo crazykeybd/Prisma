@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 import yaml
+from openpyxl import load_workbook
 
 from common.util_prisma import release_log_file
 from project_store import (
@@ -21,7 +22,13 @@ from run_prisma.executor import execute_testcase
 class ProjectStoreTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.store = ProjectStore(Path(self.temp_dir.name) / "projects")
+        self.base = Path(self.temp_dir.name)
+        self.workspace_root = self.base / "workspace"
+        self.workspace_root.mkdir()
+        self.store = ProjectStore(
+            self.base / "projects",
+            workspace_root=self.workspace_root,
+        )
 
     def tearDown(self):
         release_log_file()
@@ -41,7 +48,7 @@ class ProjectStoreTests(unittest.TestCase):
         self.assertTrue((project.root / "config.yaml").is_file())
         self.assertTrue((project.root / "data" / "test_data.xlsx").is_file())
         self.assertTrue((project.root / "data" / "test_check.xlsx").is_file())
-        self.assertTrue((project.root / "inputs" / "CheckSGInput.txt").is_file())
+        self.assertTrue((project.root / "inputs" / "mini.i").is_file())
 
         config = yaml.safe_load(
             (project.root / "config.yaml").read_text(encoding="utf-8")
@@ -108,8 +115,91 @@ class ProjectStoreTests(unittest.TestCase):
         self.assertEqual(saved.description, "新的项目说明")
         self.assertNotEqual(saved.updated_at, "2000-01-01T00:00:00+00:00")
         self.assertEqual(self.store.get(project.id).name, "after-save")
-        with self.assertRaisesRegex(ProjectError, "旧版工作区"):
-            self.store.update_metadata(LEGACY_PROJECT_ID, "legacy", "")
+
+        legacy = self.store.update_metadata(
+            LEGACY_PROJECT_ID,
+            "legacy-saved",
+            "旧版工作区也可以保存",
+        )
+        self.assertEqual(legacy.id, LEGACY_PROJECT_ID)
+        self.assertEqual(legacy.name, "legacy-saved")
+        self.assertEqual(legacy.description, "旧版工作区也可以保存")
+        self.assertTrue((self.workspace_root / "project.json").is_file())
+
+    def test_save_legacy_project_can_change_software_and_config(self):
+        config_path = self.workspace_root / "config" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(
+            yaml.safe_dump(
+                {
+                    "softwareType": "relap5",
+                    "executableName": "relap5.exe",
+                    "runMode": "simulate",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        saved = self.store.update_metadata(
+            LEGACY_PROJECT_ID,
+            "legacy-nusol",
+            "切换旧版工作区软件",
+            software_key="nusolsyslmr",
+        )
+
+        self.assertEqual(saved.id, LEGACY_PROJECT_ID)
+        self.assertEqual(saved.software_key, "nusolsyslmr")
+        metadata = json.loads(
+            (self.workspace_root / "project.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(metadata["software_key"], "nusolsyslmr")
+        config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        self.assertEqual(config["softwareType"], "nusolsyslmr")
+        self.assertEqual(config["executableName"], "nusolsyslmr.exe")
+        self.assertEqual(config["nusolsyslmrTimeoutSec"], 1800)
+
+    def test_save_project_metadata_can_change_software_in_place(self):
+        project = self.store.create("before-software-change", "relap5", "旧说明")
+        original_root = project.root
+
+        saved = self.store.update_metadata(
+            project.id,
+            "after-software-change",
+            "切换软件",
+            software_key="nusolsyslmr",
+        )
+
+        self.assertEqual(saved.id, project.id)
+        self.assertEqual(saved.root, original_root)
+        self.assertEqual(saved.software_key, "nusolsyslmr")
+        metadata = json.loads(
+            (original_root / "project.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(metadata["software_key"], "nusolsyslmr")
+        config = yaml.safe_load(
+            (original_root / "config.yaml").read_text(encoding="utf-8")
+        )
+        self.assertEqual(config["softwareType"], "nusolsyslmr")
+        self.assertEqual(config["executableName"], "nusolsyslmr.exe")
+        self.assertEqual(config["nusolsyslmrTimeoutSec"], 1800)
+
+    def test_save_project_rejects_unavailable_software_without_changing_files(self):
+        project = self.store.create("reserved-switch", "relap5")
+        metadata_path = project.root / "project.json"
+        config_path = project.root / "config.yaml"
+        metadata_before = metadata_path.read_bytes()
+        config_before = config_path.read_bytes()
+
+        with self.assertRaisesRegex(ProjectError, "尚未实现"):
+            self.store.update_metadata(
+                project.id,
+                "reserved-switch-renamed",
+                "不应写入",
+                software_key="neutron_physics",
+            )
+
+        self.assertEqual(metadata_path.read_bytes(), metadata_before)
+        self.assertEqual(config_path.read_bytes(), config_before)
 
     def test_open_internal_project_is_idempotent(self):
         project = self.store.create("internal-open", "relap5")
@@ -222,10 +312,74 @@ class ProjectStoreTests(unittest.TestCase):
                 project.root
                 / "test_cases"
                 / "STARTER-001"
-                / "output.txt"
+                / "outdta"
             ).is_file()
         )
         self.assertFalse((project.root / "log" / "outside.log").exists())
+
+    def test_nusolsyslmr_starter_project_runs_end_to_end_in_simulate_mode(self):
+        project = self.store.create("NUSOL 短时回归", "nusolsyslmr")
+        self.assertTrue((project.root / "inputs" / "indta.i").is_file())
+        config = yaml.safe_load(
+            (project.root / "config.yaml").read_text(encoding="utf-8")
+        )
+        self.assertEqual(config["nusolsyslmrTimeoutSec"], 1800)
+
+        workbook = load_workbook(
+            project.root / "data" / "test_data.xlsx",
+            data_only=True,
+        )
+        rows = [
+            [None if value is None else str(value) for value in row]
+            for row in workbook["testcase"].iter_rows(values_only=True)
+        ]
+        workbook.close()
+        self.assertEqual(len(rows), 7)
+        self.assertEqual(
+            [row[2] for row in rows[1:]],
+            [
+                "folder_prep",
+                "run_software",
+                "check_output",
+                "check_output",
+                "check_output",
+                "check_output",
+            ],
+        )
+        self.assertEqual(rows[2][5:8], ["indta.i", "outdta", "1800"])
+        self.assertEqual(
+            [row[4:7] for row in rows[3:]],
+            [
+                ["p@304010000", "8.93893E+05", "nusolsyslmr"],
+                ["tempf@304010000", "753.142", "nusolsyslmr"],
+                ["p@364010000", "7.64535E+06", "nusolsyslmr"],
+                ["tempf@364010000", "466.913", "nusolsyslmr"],
+            ],
+        )
+
+        results = execute_testcase(
+            file_path=str(project.root / "data" / "test_data.xlsx"),
+            max_workers=1,
+            project_root=project.root,
+            config_path=project.root / "config.yaml",
+        )
+
+        self.assertEqual(results, {"STARTER-001": True})
+        output = project.root / "test_cases" / "STARTER-001" / "outdta"
+        self.assertTrue(output.is_file())
+        self.assertIn(
+            "Input processing completed successfully",
+            output.read_text(encoding="utf-8-sig"),
+        )
+        self.assertEqual(
+            (
+                project.root
+                / "test_cases"
+                / "STARTER-001"
+                / "indta.i"
+            ).read_bytes(),
+            (project.root / "inputs" / "indta.i").read_bytes(),
+        )
 
 
 if __name__ == "__main__":

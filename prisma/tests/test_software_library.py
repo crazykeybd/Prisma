@@ -39,6 +39,26 @@ class SoftwareLibraryTests(unittest.TestCase):
     def _import_relap5(self, source: Path, version: str = "") -> dict:
         return self.library.import_source(self.relap5, source, version)
 
+    def _install_nusolsyslmr(self, runtime_files=()) -> Path:
+        entry = self.library.entry_root("nusolsyslmr")
+        executable = write_pe(entry / "bin" / "nusolsyslmr.exe")
+        for name in runtime_files:
+            (entry / "bin" / name).write_bytes(b"DLL")
+        (entry / "software.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "software_key": "nusolsyslmr",
+                    "display_name": "NUSOL-SYSLMR",
+                    "version": "NUSOLSYS-LMVer:1.1.1",
+                    "executable": "bin/nusolsyslmr.exe",
+                    "templates": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+        return executable
+
     def test_empty_library_reports_not_installed(self):
         catalog = {item["key"]: item for item in software_catalog(self.library)}
 
@@ -47,6 +67,35 @@ class SoftwareLibraryTests(unittest.TestCase):
         self.assertFalse(relap5["program_ready"])
         self.assertEqual(relap5["state"], "not_installed")
         self.assertEqual(catalog["neutron_physics"]["state"], "reserved")
+
+    def test_nusolsyslmr_reports_missing_runtime_dependencies(self):
+        adapter = get_adapter("nusolsyslmr")
+        self._install_nusolsyslmr()
+
+        described = self.library.describe(adapter)
+
+        self.assertEqual(described["state"], "missing_runtime")
+        self.assertFalse(described["program_ready"])
+        self.assertFalse(described["runtime_ready"])
+        self.assertEqual(
+            described["missing_runtime_files"],
+            list(adapter.required_runtime_files),
+        )
+
+    def test_nusolsyslmr_is_ready_when_runtime_dependencies_exist(self):
+        adapter = get_adapter("nusolsyslmr")
+        self._install_nusolsyslmr(adapter.required_runtime_files)
+
+        described = self.library.describe(adapter)
+
+        self.assertEqual(described["state"], "ready")
+        self.assertTrue(described["program_ready"])
+        self.assertTrue(described["runtime_ready"])
+        self.assertEqual(described["missing_runtime_files"], [])
+        self.assertEqual(
+            described["version"],
+            "NUSOLSYS-LMVer:1.1.1",
+        )
 
     def test_import_copies_runtime_bundle_and_filters_generated_files(self):
         source = self.base / "RELAP5"
@@ -182,6 +231,91 @@ class SoftwareLibraryTests(unittest.TestCase):
         payload = project.to_dict(self.library)
         self.assertTrue(payload["software_program_ready"])
         self.assertEqual(payload["software_version"], "")
+
+    def test_all_builtin_and_reserved_software_definitions_are_editable(self):
+        for key in (
+            "relap5",
+            "nusolsyslmr",
+            "neutron_physics",
+            "subchannel",
+            "fuel_performance",
+        ):
+            with self.subTest(key=key):
+                adapter = get_adapter(key, self.library)
+                entry = self.library.entry_root(key)
+                template = entry / "templates" / "case.tpl"
+                template.parent.mkdir(parents=True, exist_ok=True)
+                template.write_text("TEMPLATE", encoding="utf-8")
+                executable = None
+                if adapter.executable_name:
+                    executable = write_pe(entry / "bin" / adapter.executable_name)
+                    if key == "nusolsyslmr":
+                        for name in adapter.required_runtime_files:
+                            (entry / "bin" / name).write_bytes(b"DLL")
+
+                updated = self.library.update_definition(
+                    adapter,
+                    {
+                        "software_key": key,
+                        "display_name": f"{key}-edited",
+                        "description": f"{key} 可编辑说明",
+                        "version": "9.8.7",
+                        "arguments": ["--input", "{input}", "--output", "{output}"],
+                        "input_filenames": ["main.inp", "auxiliary.dat"],
+                        "support_files": ["runtime/*.dll"],
+                        "output_filename": "result.out",
+                        "timeout_sec": 4321,
+                    },
+                )
+
+                configured = get_adapter(key, self.library)
+                catalog = {
+                    item["key"]: item
+                    for item in software_catalog(self.library)
+                }[key]
+                self.assertEqual(updated["display_name"], f"{key}-edited")
+                self.assertEqual(configured.display_name, f"{key}-edited")
+                self.assertEqual(
+                    configured.arguments,
+                    ("--input", "{input}", "--output", "{output}"),
+                )
+                self.assertEqual(
+                    configured.input_filenames, ("main.inp", "auxiliary.dat")
+                )
+                self.assertEqual(configured.support_files, ("runtime/*.dll",))
+                self.assertEqual(configured.output_filename, "result.out")
+                self.assertEqual(configured.timeout_sec, 4321)
+                self.assertEqual(catalog["display_name"], f"{key}-edited")
+                self.assertEqual(catalog["version"], "9.8.7")
+                self.assertEqual(catalog["timeout_sec"], 4321)
+                self.assertTrue(template.is_file())
+                if executable is not None:
+                    self.assertTrue(executable.is_file())
+                    self.assertEqual(
+                        catalog["executable_name"],
+                        adapter.executable_name,
+                    )
+
+    def test_reserved_software_stays_reserved_after_update(self):
+        adapter = get_adapter("neutron_physics", self.library)
+        self.library.update_definition(
+            adapter,
+            {
+                "display_name": "中子物理-已配置",
+                "description": "仍是预留接口",
+                "timeout_sec": 900,
+            },
+        )
+
+        configured = get_adapter("neutron_physics", self.library)
+        catalog = {
+            item["key"]: item for item in software_catalog(self.library)
+        }["neutron_physics"]
+
+        self.assertEqual(configured.display_name, "中子物理-已配置")
+        self.assertEqual(configured.status, "reserved")
+        self.assertFalse(catalog["available"])
+        self.assertEqual(catalog["state"], "reserved")
 
     def test_project_executable_wins_before_library_fallback(self):
         source = self.base / "RELAP5"

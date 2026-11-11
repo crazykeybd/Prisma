@@ -27,6 +27,12 @@ LEGACY_PROJECT_ID = "__legacy__"
 PROJECT_VERSION = 1
 PROJECT_DIRS = ("data", "inputs", "test_cases", "log", "exports")
 PROJECT_HEADERS = ["编号", "运行目录", "action", "object", "参数1", "参数2", "参数3", "参数4"]
+NUSOLSYSLMR_CHECKS = (
+    ("p@304010000", "8.93893E+05"),
+    ("tempf@304010000", "753.142"),
+    ("p@364010000", "7.64535E+06"),
+    ("tempf@364010000", "466.913"),
+)
 _INVALID_WINDOWS_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 _WINDOWS_RESERVED = re.compile(
     r"^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$", re.IGNORECASE
@@ -73,6 +79,9 @@ class Project:
             "software_program_ready": bool(software.get("program_ready")),
             "software_state": software.get("state", "unknown"),
             "software_version": software.get("version", ""),
+            "software_missing_runtime_files": list(
+                software.get("missing_runtime_files") or []
+            ),
             "software_library_directory": software.get("library_directory", ""),
             "created_at": self.created_at,
             "updated_at": self.updated_at,
@@ -113,7 +122,7 @@ def _write_json(path: Path, payload: dict) -> None:
 
 
 def _project_config(software_key: str, executable: str) -> dict:
-    return {
+    config = {
         "dataConfigPath": "data/test_data.xlsx",
         "checkConfigPath": "data/test_check.xlsx",
         "inputsDir": "inputs",
@@ -125,6 +134,9 @@ def _project_config(software_key: str, executable: str) -> dict:
         "runMode": "simulate",
         "runArgs": ["{input}"],
     }
+    if software_key == "nusolsyslmr":
+        config["nusolsyslmrTimeoutSec"] = 1800
+    return config
 
 
 def _create_starter_workbooks(
@@ -138,27 +150,47 @@ def _create_starter_workbooks(
     sheet = script.active
     sheet.title = "testcase"
     sheet.append(PROJECT_HEADERS)
-    sheet.append([
-        "STARTER-001",
-        "STARTER-001",
-        "folder_prep",
-        "STARTER-001",
-        input_name,
-        executable_name,
-        None,
-        None,
-    ])
-    sheet.append([
-        None,
-        "STARTER-001",
-        "run_software",
-        executable_name,
-        software_key,
-        input_name,
-        output_name,
-        "600",
-    ])
-    sheet.merge_cells("A2:A3")
+    run_dir = "STARTER-001"
+    timeout = "1800" if software_key == "nusolsyslmr" else "600"
+    rows = [
+        [
+            "STARTER-001",
+            run_dir,
+            "folder_prep",
+            "STARTER-001",
+            input_name,
+            executable_name,
+            None,
+            None,
+        ],
+        [
+            None,
+            run_dir,
+            "run_software",
+            executable_name,
+            software_key,
+            input_name,
+            output_name,
+            timeout,
+        ],
+    ]
+    if software_key == "nusolsyslmr":
+        rows.extend(
+            [
+                None,
+                run_dir,
+                "check_output",
+                output_name,
+                key,
+                expected,
+                software_key,
+                None,
+            ]
+            for key, expected in NUSOLSYSLMR_CHECKS
+        )
+    for row in rows:
+        sheet.append(row)
+    sheet.merge_cells(start_row=2, start_column=1, end_row=len(rows) + 1, end_column=1)
     script.save(root / "data" / "test_data.xlsx")
     script.close()
 
@@ -178,23 +210,44 @@ class ProjectStore:
         self,
         projects_root: Path | None = None,
         software_library: SoftwareLibrary | None = None,
+        workspace_root: Path | None = None,
     ):
         self.projects_root = Path(projects_root or (ROOT / "projects")).resolve()
         self.software_library = software_library or SoftwareLibrary()
+        self.workspace_root = Path(workspace_root or ROOT).resolve()
 
     @property
     def active_file(self) -> Path:
         return self.projects_root / ".active"
 
     def legacy_project(self) -> Project:
-        adapter = get_adapter("relap5", self.software_library)
+        root = self.workspace_root
+        metadata: dict = {}
+        metadata_path = root / "project.json"
+        if metadata_path.is_file():
+            try:
+                payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+                if isinstance(payload, dict):
+                    metadata = payload
+            except (OSError, json.JSONDecodeError):
+                metadata = {}
+        software_key = str(metadata.get("software_key") or "relap5")
+        try:
+            adapter = get_adapter(software_key, self.software_library)
+        except SoftwareAdapterError:
+            adapter = get_adapter("relap5", self.software_library)
         return Project(
             id=LEGACY_PROJECT_ID,
-            name="旧版工作区",
-            root=ROOT.resolve(),
+            name=str(metadata.get("name") or "旧版工作区"),
+            root=root,
             software_key=adapter.key,
             software_name=adapter.display_name,
-            description="兼容现有 data、inputs、test_cases 和 log 数据。",
+            created_at=metadata.get("created_at"),
+            updated_at=metadata.get("updated_at"),
+            description=str(
+                metadata.get("description")
+                or "兼容现有 data、inputs、test_cases 和 log 数据。"
+            ),
             legacy=True,
         )
 
@@ -420,21 +473,99 @@ class ProjectStore:
         project_id: str,
         name: str,
         description: str = "",
+        software_key: str | None = None,
     ) -> Project:
-        if project_id == LEGACY_PROJECT_ID:
-            raise ProjectError("旧版工作区没有可保存的项目元数据")
+        legacy = project_id == LEGACY_PROJECT_ID
         project = self.get(project_id)
         display_name = validate_project_name(name)
         clean_description = str(description or "").strip()
         if len(clean_description) > 200:
             raise ProjectError("项目说明不能超过 200 个字符")
 
-        metadata = self._read_metadata(project.root)
+        target_software_key = project.software_key
+        target_adapter = None
+        if software_key is not None:
+            try:
+                target_adapter = get_adapter(str(software_key), self.software_library)
+            except SoftwareAdapterError as exc:
+                raise ProjectError(str(exc)) from exc
+            if target_adapter.status != "available":
+                raise ProjectError(
+                    f"{target_adapter.display_name} 尚未实现，不能设为项目的被测软件"
+                )
+            target_software_key = target_adapter.key
+
+        if legacy:
+            metadata_path = self.workspace_root / "project.json"
+            config_path = self.workspace_root / "config" / "config.yaml"
+            if metadata_path.is_file():
+                try:
+                    metadata = json.loads(
+                        metadata_path.read_text(encoding="utf-8")
+                    )
+                except (OSError, json.JSONDecodeError) as exc:
+                    raise ProjectError("旧版工作区元数据无法读取") from exc
+                if not isinstance(metadata, dict):
+                    raise ProjectError("旧版工作区元数据格式无效")
+            else:
+                metadata = {}
+        else:
+            metadata = self._read_metadata(project.root)
+            metadata_path = self._metadata_path(project.root)
+            config_path = project.root / "config.yaml"
+        metadata_before = (
+            metadata_path.read_bytes() if metadata_path.is_file() else None
+        )
+        config_before = config_path.read_bytes() if config_path.is_file() else None
+
+        if target_software_key != project.software_key:
+            if not config_path.is_file():
+                label = "旧版工作区" if legacy else project.root.name
+                raise ProjectError(f"{label}缺少 config.yaml")
+            try:
+                config = yaml.safe_load(config_before.decode("utf-8"))
+            except (UnicodeDecodeError, yaml.YAMLError) as exc:
+                raise ProjectError(f"项目配置无法读取: {project.root.name}") from exc
+            if not isinstance(config, dict):
+                raise ProjectError(f"项目配置格式无效: {project.root.name}")
+            assets = self.software_library.describe(target_adapter)
+            executable_name = (
+                assets.get("executable_name")
+                or getattr(target_adapter, "executable_name", "")
+                or "solver.exe"
+            )
+            config["softwareType"] = target_software_key
+            config["executableName"] = executable_name
+            if target_software_key == "nusolsyslmr":
+                config.setdefault("nusolsyslmrTimeoutSec", 1800)
+            config_text = yaml.safe_dump(
+                config, allow_unicode=True, sort_keys=False
+            )
+        else:
+            config_text = None
+
         metadata["version"] = PROJECT_VERSION
         metadata["name"] = display_name
         metadata["description"] = clean_description
+        metadata["software_key"] = target_software_key
+        metadata["created_at"] = str(
+            metadata.get("created_at") or _utc_now()
+        )
         metadata["updated_at"] = _utc_now()
-        _write_json(self._metadata_path(project.root), metadata)
+        try:
+            if config_text is not None:
+                temporary = config_path.with_suffix(".yaml.tmp")
+                temporary.write_text(config_text, encoding="utf-8")
+                temporary.replace(config_path)
+            _write_json(metadata_path, metadata)
+        except Exception:
+            if config_before is not None:
+                config_path.write_bytes(config_before)
+            if metadata_before is None:
+                metadata_path.unlink(missing_ok=True)
+            else:
+                metadata_path.write_bytes(metadata_before)
+            raise
         return self.get(project.id)
 
     def open_existing(self, path: str | Path) -> Project:

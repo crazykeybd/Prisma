@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from openpyxl import Workbook, load_workbook
+
 from common.run_context import RunContext
+from common.util_prisma import release_log_file
 from keywords.keyword_lib import KeyPrisma, execute_command
 from software import (
     AdapterNotImplementedError,
@@ -104,6 +108,21 @@ class ReservedAdapterTests(unittest.TestCase):
 
 
 class Relap5CompatibilityTests(unittest.TestCase):
+    def test_nusolsyslmr_declares_wizard_defaults_and_runtime(self):
+        adapter = get_adapter("nusolsyslmr")
+        self.assertEqual(adapter.input_filename, "indta.i")
+        self.assertEqual(adapter.output_filename, "outdta")
+        self.assertEqual(adapter.timeout_sec, 1800)
+        self.assertEqual(
+            set(adapter.required_runtime_files),
+            {
+                "libifcoremdd.dll",
+                "libifportmd.dll",
+                "libmmd.dll",
+                "msvcr120d.dll",
+            },
+        )
+
     def test_output_analyzer_and_value_extraction(self):
         text = (
             "0$$$$$$$$ Input processing completed successfully.\n"
@@ -214,6 +233,10 @@ class Relap5CompatibilityTests(unittest.TestCase):
                     software_key="nusolsyslmr")
             self.assertTrue(ok)
             self.assertEqual((run_dir / "tpfh2o").read_bytes(), b"NUSOL-SPECIFIC")
+            self.assertEqual(
+                (run_dir / "indta.i").read_text(encoding="utf-8"),
+                "INPUT",
+            )
 
     def test_folder_prep_derives_software_type_from_project_config(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -259,6 +282,52 @@ class Relap5CompatibilityTests(unittest.TestCase):
                 (run_dir / "input.txt").read_text(encoding="utf-8"),
                 "NUSOL INPUT",
             )
+            self.assertEqual(
+                (run_dir / "indta.i").read_text(encoding="utf-8"),
+                "NUSOL INPUT",
+            )
+
+    def test_folder_prep_project_input_overrides_library_bin_card(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "project"
+            specific = root / "inputs" / "nusolsyslmr"
+            specific.mkdir(parents=True)
+            (specific / "indta.i").write_text("CASE INPUT", encoding="utf-8")
+            executable = specific / "nusolsyslmr.exe"
+            executable.write_bytes(b"MZ")
+            run_dir = root / "test_cases" / "case-01"
+            run_dir.mkdir(parents=True)
+            (run_dir / "indta.i").write_text("LIBRARY INPUT", encoding="utf-8")
+            with patch(
+                "keywords.keyword_lib.resolve_executable",
+                return_value=executable,
+            ), patch(
+                "keywords.keyword_lib.destination_executable",
+                return_value=run_dir / executable.name,
+            ), patch(
+                "keywords.keyword_lib.init_log",
+                return_value=MagicMock(),
+            ):
+                ok = KeyPrisma.folder_prep(
+                    "TC-NUSOL",
+                    "case-01",
+                    r"nusolsyslmr\indta.i",
+                    "nusolsyslmr.exe",
+                    context=RunContext(
+                        root=root,
+                        config_path=root / "config.yaml",
+                    ),
+                    software_key="nusolsyslmr",
+                )
+            self.assertTrue(ok)
+            self.assertEqual(
+                (run_dir / "indta.i").read_text(encoding="utf-8"),
+                "CASE INPUT",
+            )
+            self.assertEqual(
+                (run_dir / "input.txt").read_text(encoding="utf-8"),
+                "CASE INPUT",
+            )
 
     def test_missing_dll_returncode_has_actionable_diagnostic(self):
         from software.relap5 import _windows_startup_hint
@@ -267,6 +336,97 @@ class Relap5CompatibilityTests(unittest.TestCase):
         self.assertIn("STATUS_DLL_NOT_FOUND", message)
         self.assertIn("MSVCR120D.dll", message)
         self.assertIn("architecture", _windows_startup_hint(0xC000007B))
+
+    def test_nusolsyslmr_missing_runtime_is_rejected_before_start(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            run_dir = Path(temp_dir)
+            (run_dir / "nusolsyslmr.exe").write_bytes(b"MZ executable")
+            request = SoftwareRunRequest(
+                case_no="TC-NUSOL",
+                run_dir=run_dir,
+                executable="nusolsyslmr.exe",
+                software_type="nusolsyslmr",
+                input_name="indta.i",
+                project_root=run_dir,
+            )
+            adapter = get_adapter("nusolsyslmr")
+            with patch("software.relap5.read_config", return_value={"runMode": "real"}), \
+                 patch("software.relap5.subprocess.run") as run:
+                with self.assertRaises(Exception) as ctx:
+                    adapter.execute(request)
+            run.assert_not_called()
+            self.assertIn("缺少运行依赖", str(ctx.exception))
+            self.assertIn("libifcoremdd.dll", str(ctx.exception))
+            self.assertIn("32 位 Intel Fortran", str(ctx.exception))
+
+    def test_nusolsyslmr_project_runtime_overrides_are_copied(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "project"
+            common = root / "inputs"
+            specific = common / "nusolsyslmr"
+            run_dir = root / "test_cases" / "case-01"
+            common.mkdir(parents=True)
+            specific.mkdir(parents=True)
+            run_dir.mkdir(parents=True)
+            executable = Path(temp_dir) / "source" / "nusolsyslmr.exe"
+            executable.parent.mkdir()
+            executable.write_bytes(b"MZ executable")
+            adapter = get_adapter("nusolsyslmr")
+            for name in adapter.required_runtime_files:
+                (common / name).write_bytes(b"COMMON")
+                (specific / name).write_bytes(b"NUSOL-SPECIFIC")
+            request = SoftwareRunRequest(
+                case_no="TC-NUSOL",
+                run_dir=run_dir,
+                executable="nusolsyslmr.exe",
+                software_type="nusolsyslmr",
+                input_name="indta.i",
+                project_root=root,
+            )
+            with patch(
+                "software.relap5.resolve_executable",
+                return_value=executable,
+            ):
+                adapter._prepare_executable(request)
+            for name in adapter.required_runtime_files:
+                self.assertEqual(
+                    (run_dir / name).read_bytes(),
+                    b"NUSOL-SPECIFIC",
+                )
+
+    def test_nusolsyslmr_bundled_input_does_not_overwrite_requested_card(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            run_dir = root / "run"
+            library_bin = root / "library" / "nusolsyslmr" / "bin"
+            run_dir.mkdir()
+            library_bin.mkdir(parents=True)
+            executable = library_bin / "nusolsyslmr.exe"
+            executable.write_bytes(b"MZ executable")
+            (library_bin / "indta.i").write_text("BUNDLED CARD", encoding="utf-8")
+            for name in get_adapter("nusolsyslmr").required_runtime_files:
+                (library_bin / name).write_bytes(b"DLL")
+            requested = run_dir / "indta.i"
+            requested.write_text("SHORT CARD", encoding="utf-8")
+            request = SoftwareRunRequest(
+                case_no="TC-NUSOL",
+                run_dir=run_dir,
+                executable="nusolsyslmr.exe",
+                software_type="nusolsyslmr",
+                input_name="indta.i",
+                project_root=root,
+            )
+            adapter = get_adapter("nusolsyslmr")
+            library = MagicMock()
+            library.entry_root.return_value = root / "library" / "nusolsyslmr"
+            library.resolve_executable.return_value = executable
+            with patch("software.relap5.SoftwareLibrary", return_value=library), \
+                 patch("software.executables.SoftwareLibrary", return_value=library), \
+                 patch("software.relap5.resolve_executable", return_value=executable), \
+                 patch("software.executables.destination_executable",
+                       wraps=__import__("software.executables", fromlist=["destination_executable"]).destination_executable):
+                adapter._prepare_executable(request)
+            self.assertEqual(requested.read_text(encoding="utf-8"), "SHORT CARD")
 
     def test_run_software_relap5_simulate_mode(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -350,7 +510,10 @@ class Relap5CompatibilityTests(unittest.TestCase):
                 with self.assertRaises(Exception) as ctx:
                     adapter.execute(request)
             self.assertEqual(run.call_args.kwargs["timeout"], 4321)
-            self.assertIn("NUSOL-SYSLMR timeout after 4321s", str(ctx.exception))
+            self.assertIn(
+                f"{adapter.display_name} timeout after 4321s",
+                str(ctx.exception),
+            )
 
     def test_missing_dll_is_reported_when_no_output_is_produced(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -394,6 +557,71 @@ class Relap5CompatibilityTests(unittest.TestCase):
                 output.read_text(encoding="utf-8-sig"),
             )
 
+    @unittest.skipUnless(
+        os.name == "nt" and os.environ.get("PRISMA_REAL_NUSOL") == "1",
+        "set PRISMA_REAL_NUSOL=1 to run the NUSOL-SYSLMR executable",
+    )
+    def test_nusolsyslmr_real_short_case(self):
+        template = (
+            Path(__file__).resolve().parents[1]
+            / "software-library"
+            / "nusolsyslmr"
+            / "templates"
+            / "indta.i"
+        )
+        deck = template.read_bytes()
+        self.assertIn(
+            b"201   10.0  1.0e-10   0.005      3     200   2000   2000",
+            deck,
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            run_dir = Path(temp_dir)
+            (run_dir / "indta.i").write_bytes(deck)
+            request = SoftwareRunRequest(
+                case_no="TC-NUSOL-REAL",
+                run_dir=run_dir,
+                executable="nusolsyslmr.exe",
+                software_type="nusolsyslmr",
+                input_name="indta.i",
+                output_name="outdta",
+                timeout=120,
+                project_root=run_dir,
+            )
+            adapter = get_adapter("nusolsyslmr")
+            with patch("software.relap5.read_config", return_value={"runMode": "real"}):
+                result = adapter.execute(request)
+
+            self.assertEqual(result.returncode, 0)
+            self.assertTrue(result.analysis["input_ok"])
+            self.assertEqual(result.analysis["diagnostics"], [])
+            text = result.output_path.read_text(encoding="utf-8", errors="replace")
+            self.assertIn("Final time=    10.0000", text)
+            self.assertIn("Transient terminated by end of time step cards.", text)
+            for key in (
+                "p@304010000",
+                "tempf@304010000",
+                "p@364010000",
+                "tempf@364010000",
+            ):
+                self.assertIsNotNone(adapter.extract_value(text, key))
+            self.assertEqual(
+                adapter.extract_value(text, "p@304010000"),
+                "8.93893E+05",
+            )
+            self.assertEqual(
+                adapter.extract_value(text, "tempf@304010000"),
+                "753.142",
+            )
+            self.assertEqual(
+                adapter.extract_value(text, "p@364010000"),
+                "7.64535E+06",
+            )
+            self.assertEqual(
+                adapter.extract_value(text, "tempf@364010000"),
+                "466.913",
+            )
+
     def test_legacy_run_relap5_delegates_to_adapter(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             with patch("software.relap5.read_config", return_value={"runMode": "simulate"}):
@@ -423,20 +651,71 @@ class Relap5CompatibilityTests(unittest.TestCase):
 
 
 class CheckOutputTests(unittest.TestCase):
-    def _write_output(self, temp_dir: str, text: str) -> Path:
-        path = Path(temp_dir, "output.txt")
+    def tearDown(self):
+        release_log_file()
+
+    def _write_output(
+        self,
+        temp_dir: str,
+        text: str,
+        filename: str = "output.txt",
+    ) -> Path:
+        path = Path(temp_dir, filename)
         path.write_text(text, encoding="utf-8")
         return path
+
+    def _context(self, temp_dir: str, case_no: str) -> RunContext:
+        root = Path(temp_dir)
+        config_path = root / "config.yaml"
+        config_path.write_text(
+            "checkConfigPath: data/test_check.xlsx\n",
+            encoding="utf-8",
+        )
+        check_path = root / "data" / "test_check.xlsx"
+        check_path.parent.mkdir()
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.append(["编号", "实际结果", "结论"])
+        sheet.append([case_no, None, None])
+        workbook.save(check_path)
+        workbook.close()
+        return RunContext(root=root, config_path=config_path)
+
+    def _assert_result_row(
+        self,
+        context: RunContext,
+        case_no: str,
+        actual: str,
+        conclusion: str,
+    ) -> None:
+        workbook = load_workbook(
+            context.root / "data" / "test_check.xlsx",
+            data_only=True,
+        )
+        rows = list(workbook.active.iter_rows(values_only=True))
+        workbook.close()
+        self.assertEqual(rows[1], (case_no, actual, conclusion))
+        release_log_file()
 
     def test_generic_key_value_format(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             output = self._write_output(temp_dir, "keff: 1.00003\n")
-            with patch("keywords.keyword_lib.read_config", return_value={}), \
-                 patch("keywords.keyword_lib.write_result_to_check") as write_result:
-                ok = KeyPrisma.check_output("TC-GENERIC", temp_dir, output.name, "keff", "1.00003")
+            context = self._context(temp_dir, "TC-GENERIC")
+            ok = KeyPrisma.check_output(
+                "TC-GENERIC",
+                temp_dir,
+                output.name,
+                "keff",
+                "1.00003",
+                context=context,
+            )
             self.assertTrue(ok)
-            write_result.assert_called_once()
-            self.assertEqual(write_result.call_args.args[2], "1.00003")
+            self._assert_result_row(
+                context,
+                "TC-GENERIC",
+                "1.00003",
+                "通过",
+            )
 
     def test_nested_output_path_can_be_checked(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -453,6 +732,7 @@ class CheckOutputTests(unittest.TestCase):
                     "1.00003",
                 )
             self.assertTrue(ok)
+            release_log_file()
 
     def test_relap5_parser_is_used_when_software_type_omitted(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -461,12 +741,22 @@ class CheckOutputTests(unittest.TestCase):
                 "0   Vol.no.  pressure     tempf\n"
                 " 100-010000  1.00000E+05  300.0\n",
             )
-            with patch("keywords.keyword_lib.read_config", return_value={}), \
-                 patch("keywords.keyword_lib.write_result_to_check") as write_result:
-                ok = KeyPrisma.check_output(
-                    "TC-RELAP", temp_dir, output.name, "p@100010000", "1.00000E+05")
+            context = self._context(temp_dir, "TC-RELAP")
+            ok = KeyPrisma.check_output(
+                "TC-RELAP",
+                temp_dir,
+                output.name,
+                "p@100010000",
+                "1.00000E+05",
+                context=context,
+            )
             self.assertTrue(ok)
-            write_result.assert_called_once()
+            self._assert_result_row(
+                context,
+                "TC-RELAP",
+                "1.00000E+05",
+                "通过",
+            )
 
     def test_nusolsyslmr_uses_relap5_output_parser(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -475,13 +765,23 @@ class CheckOutputTests(unittest.TestCase):
                 "0   Vol.no.  pressure     tempf\n"
                 " 100-010000  1.00000E+05  300.0\n",
             )
-            with patch("keywords.keyword_lib.read_config", return_value={}), \
-                 patch("keywords.keyword_lib.write_result_to_check") as write_result:
-                ok = KeyPrisma.check_output(
-                    "TC-NUSOL", temp_dir, output.name, "p@100010000",
-                    "1.00000E+05", "nusolsyslmr")
+            context = self._context(temp_dir, "TC-NUSOL")
+            ok = KeyPrisma.check_output(
+                "TC-NUSOL",
+                temp_dir,
+                output.name,
+                "p@100010000",
+                "1.00000E+05",
+                "nusolsyslmr",
+                context=context,
+            )
             self.assertTrue(ok)
-            write_result.assert_called_once()
+            self._assert_result_row(
+                context,
+                "TC-NUSOL",
+                "1.00000E+05",
+                "通过",
+            )
 
     def test_reserved_software_parser_fails_explicitly(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -491,6 +791,7 @@ class CheckOutputTests(unittest.TestCase):
                     "TC-NP", temp_dir, output.name, "keff", "1.0", "neutron_physics")
             self.assertFalse(ok)
             write_result.assert_not_called()
+            release_log_file()
 
 
 class ApiKeywordSchemaTests(unittest.TestCase):

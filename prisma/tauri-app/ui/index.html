@@ -250,7 +250,7 @@
     justify-content:center; padding:20px; background:rgba(10,25,40,.48); }
   .modal-backdrop[hidden] { display:none; }
   .modal { width:min(430px,100%); background:#fff; border:1px solid #cbd8e5; border-radius:7px;
-    padding:18px; box-shadow:0 18px 55px rgba(10,25,40,.23); }
+    padding:18px; max-height:calc(100vh - 40px); overflow:auto; box-shadow:0 18px 55px rgba(10,25,40,.23); }
   .modal h3 { margin:0 0 7px; font-size:16px; }
   .modal p { margin:0 0 13px; color:var(--dim); font-size:12px; line-height:1.65; }
   .modal input { width:100%; }
@@ -266,6 +266,8 @@
   .modal.modal-wide { width:min(580px,100%); }
   .modal-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
   .modal-grid .span-2 { grid-column:1 / -1; }
+  .modal .project-field { white-space:normal; }
+  .modal .project-field small { color:var(--dim); font-size:11px; line-height:1.5; white-space:normal; overflow-wrap:anywhere; }
   .modal-grid .project-field small { color:var(--dim); font-size:11px; line-height:1.5; margin:0; white-space:normal; }
   .modal.modal-xl { width:min(1040px,100%); max-height:88vh; overflow:auto; }
   .wiz-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:11px 12px; }
@@ -431,7 +433,7 @@
       <div class="toolbar project-heading">
         <div>
           <h2 class="page">项目管理</h2>
-          <div class="hint">每个项目固定对应一类被测软件，剧本、输入卡、结果、日志和运行现场均保存在该项目目录内。</div>
+          <div class="hint">项目可修改名称、说明和关联软件；剧本、输入卡、结果、日志和运行现场均保存在该项目目录内。</div>
         </div>
         <div class="spacer"></div>
         <button onclick="refreshProjectCatalog()">刷新</button>
@@ -669,6 +671,8 @@
           <button onclick="loadSmokeExample()">载入冒烟示例</button>
           <button class="primary" id="btnStart" onclick="startRun()">▶ 开始执行</button>
           <button id="btnStop" onclick="stopRun()" disabled>■ 停止</button>
+          <button id="btnOpenReport" onclick="openRunReport()" disabled
+            title="运行完成后打开 HTML 测试报告">打开报告</button>
           <span id="runSummary" style="color:var(--ok);font-weight:600"></span>
         </div>
       </div>
@@ -782,10 +786,9 @@
     <form class="modal-form" id="saveProjectForm" onsubmit="saveProject(event)">
       <div>
         <h3 id="saveProjectTitle">保存项目</h3>
-        <p>保存项目名称和说明。项目目录与项目内测试文件不会被移动。</p>
+        <p>可修改项目名称、说明和关联软件。项目目录与项目内测试文件不会被移动。</p>
       </div>
       <div class="modal-project-facts">
-        <span>被测软件</span><strong id="saveProjectSoftware">-</strong>
         <span>项目目录</span><code id="saveProjectPath">-</code>
       </div>
       <label class="project-field">
@@ -796,6 +799,11 @@
         <span>项目说明（可选）</span>
         <input type="text" id="saveProjectDescription" maxlength="200" autocomplete="off"
           placeholder="用途、版本或负责人">
+      </label>
+      <label class="project-field">
+        <span>关联软件</span>
+        <select id="saveProjectSoftware" required></select>
+        <small>切换后同步更新项目配置中的软件类型和程序名，已有测试文件保持不变。</small>
       </label>
       <div class="modal-actions">
         <button type="button" onclick="closeSaveProject()">取消</button>
@@ -843,10 +851,10 @@
 </div>
 <div class="modal-backdrop" id="softwareCreateModal" hidden>
   <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="softwareCreateTitle">
-    <form class="modal-form" id="softwareCreateForm" onsubmit="createSoftwareDefinition(event)">
+    <form class="modal-form" id="softwareCreateForm" onsubmit="saveSoftwareDefinition(event)">
       <div>
         <h3 id="softwareCreateTitle">新增被测软件</h3>
-        <p>先登记软件定义，再到软件库导入它的 .exe。框架按下面的命令行模板调用该软件，无需修改代码。</p>
+        <p id="softwareCreateHint">先登记软件定义，再到软件库导入它的 .exe。框架按下面的命令行模板调用该软件，无需修改代码。</p>
       </div>
       <div class="modal-grid">
         <label class="project-field">
@@ -855,7 +863,7 @@
             placeholder="例如：MY-SOLVER" required>
         </label>
         <label class="project-field">
-          <span>软件标识（英文，用作目录名）</span>
+          <span>软件标识（英文，创建后不可修改）</span>
           <input type="text" id="softwareCreateKey" maxlength="60" autocomplete="off"
             placeholder="例如：my_solver" pattern="[a-z0-9][a-z0-9_\-]*" required>
         </label>
@@ -1062,6 +1070,7 @@ let filePath = null;
 let logAfter = 0;
 let lastOrderKey = "";
 let running = false;
+let runReportPath = "";
 let logTimer = null;
 let activeTabId = "overview";
 let currentProject = null;
@@ -1069,6 +1078,7 @@ let projectCatalog = [];
 let softwareCatalog = [];
 let softwareLibraryRoot = "";
 let pendingSoftwareImport = null;
+let pendingSoftwareEdit = null;
 let pendingSaveProject = null;
 let pendingDeleteProject = null;
 const hasTauri = typeof window.__TAURI__ !== "undefined";
@@ -1125,16 +1135,15 @@ function setCurrentProject(project) {
     select.value = currentProject.id;
   }
   const saveButton = document.getElementById("btnSaveCurrentProject");
-  saveButton.disabled = running || !currentProject || currentProject.legacy;
-  saveButton.title = currentProject && currentProject.legacy
-    ? "旧版工作区没有可保存的项目元数据"
-    : "";
+  saveButton.disabled = running || !currentProject;
+  saveButton.title = "";
 }
 
 function renderSoftwareCatalog() {
   const host = document.getElementById("softwareLibraryRows");
   const states = {
     ready: { label: "程序就绪", className: "" },
+    missing_runtime: { label: "缺少运行依赖", className: "warning" },
     missing_program: { label: "缺少程序", className: "warning" },
     not_installed: { label: "未导入", className: "reserved" },
     reserved: { label: "适配器预留", className: "reserved" },
@@ -1156,11 +1165,14 @@ function renderSoftwareCatalog() {
              onclick="deleteSoftware(this.dataset.softwareKey)"
              ${running ? "disabled" : ""}>删除</button>`
         : "";
-      const action = `<div class="row-actions">${importButton}${removeButton}</div>`;
+      const editButton = `<button data-software-key="${esc(item.key)}"
+           onclick="openSoftwareEdit(this.dataset.softwareKey)"
+           ${running ? "disabled" : ""}>编辑</button>`;
+      const action = `<div class="row-actions">${editButton}${importButton}${removeButton}</div>`;
       const detail = item.manifest_error
         || item.description
         || "尚未配置软件说明";
-      const commandHint = item.user_defined && item.arguments && item.arguments.length
+      const commandHint = item.arguments && item.arguments.length
         ? ` · 参数 ${item.arguments.join(" ")}`
         : "";
       const inputCards = Array.isArray(item.input_filenames) ? item.input_filenames : [];
@@ -1173,11 +1185,17 @@ function renderSoftwareCatalog() {
       const supportHint = supportFiles.length
         ? ` · 默认依赖 ${supportFiles.length} 项`
         : "";
+      const missingRuntime = Array.isArray(item.missing_runtime_files)
+        ? item.missing_runtime_files
+        : [];
+      const runtimeHint = missingRuntime.length
+        ? ` · 缺少依赖 ${missingRuntime.join("、")}`
+        : "";
       const supportTitle = supportFiles.length
         ? `默认依赖：${supportFiles.join(" / ")}`
         : "";
       const executable = item.executable_name
-        ? `程序文件：${item.executable_name}${inputHint}${supportHint}${commandHint}`
+        ? `程序文件：${item.executable_name}${inputHint}${supportHint}${runtimeHint}${commandHint}`
         : (item.user_defined ? "尚未导入程序" : "尚未确定程序文件名");
       const usage = `${Number(item.file_count || 0)} 个文件 · ${fmtSize(item.total_size || 0)}`;
       return `<tr>
@@ -1223,6 +1241,7 @@ function renderSoftwareCatalog() {
     const reserved = softwareCatalog.filter(item => !item.available);
     const optionState = {
       ready: "程序就绪",
+      missing_runtime: "缺少运行依赖",
       missing_program: "缺少程序",
       not_installed: "未导入程序",
       invalid: "清单异常",
@@ -1242,10 +1261,13 @@ function renderProjectCatalog() {
   if (host) host.innerHTML = projectCatalog.map(project => {
     const isCurrent = project.id === currentId;
     const programMissing = project.software_available && !project.software_program_ready;
+    const missingRuntime = Array.isArray(project.software_missing_runtime_files)
+      ? project.software_missing_runtime_files
+      : [];
     const state = !project.software_available
       ? { label: project.legacy ? "兼容工作区" : "适配器预留", className: "reserved" }
       : programMissing
-        ? { label: "缺少程序", className: "warning" }
+        ? { label: missingRuntime.length ? "缺少运行依赖" : "缺少程序", className: "warning" }
         : project.legacy
           ? { label: "兼容工作区", className: "" }
           : isCurrent
@@ -1257,16 +1279,16 @@ function renderProjectCatalog() {
       : "";
     const softwareStatus = `<span class="software-cell">${esc(project.software_name)}${version}
       <small>${project.software_available
-        ? (programMissing ? "请先在软件库中导入有效程序" : "软件库程序可用")
+        ? (missingRuntime.length
+            ? `请补齐运行依赖：${missingRuntime.join("、")}`
+            : (programMissing ? "请先在软件库中导入有效程序" : "软件库程序可用"))
         : "当前适配器尚未实现"}</small>
     </span>`;
     const actions = [
-      isCurrent || project.legacy
+      isCurrent
         ? ""
         : `<button data-project-id="${esc(project.id)}" onclick="activateProject(this.dataset.projectId)">打开</button>`,
-      project.legacy
-        ? ""
-        : `<button data-project-id="${esc(project.id)}" onclick="openSaveProject(this.dataset.projectId)">保存</button>`,
+      `<button data-project-id="${esc(project.id)}" onclick="openSaveProject(this.dataset.projectId)">编辑</button>`,
       isCurrent || project.legacy
         ? ""
         : `<button class="danger" data-project-id="${esc(project.id)}" onclick="openDeleteProject(this.dataset.projectId)">删除</button>`,
@@ -1400,6 +1422,7 @@ function openSoftwareCreate() {
     warn("任务运行期间不能新增被测软件");
     return;
   }
+  pendingSoftwareEdit = null;
   const form = document.getElementById("softwareCreateForm");
   form.reset();
   document.getElementById("softwareCreateInputs").value = "input.txt";
@@ -1407,6 +1430,12 @@ function openSoftwareCreate() {
   document.getElementById("softwareCreateOutput").value = "output.txt";
   document.getElementById("softwareCreateArguments").value = "{input} -o {output}";
   document.getElementById("softwareCreateTimeout").value = "1800";
+  const keyInput = document.getElementById("softwareCreateKey");
+  keyInput.readOnly = false;
+  keyInput.title = "";
+  document.getElementById("softwareCreateTitle").textContent = "新增被测软件";
+  document.getElementById("softwareCreateHint").textContent =
+    "先登记软件定义，再到软件库导入它的 .exe。框架按下面的命令行模板调用该软件，无需修改代码。";
   const button = document.getElementById("btnSoftwareCreate");
   button.disabled = false;
   button.textContent = "登记软件";
@@ -1414,13 +1443,67 @@ function openSoftwareCreate() {
   setTimeout(() => document.getElementById("softwareCreateName").focus(), 0);
 }
 
-function closeSoftwareCreate() {
-  document.getElementById("softwareCreateModal").hidden = true;
-  document.getElementById("softwareCreateForm").reset();
+function openSoftwareEdit(softwareKey) {
+  const item = softwareCatalog.find(entry => entry.key === softwareKey);
+  if (!item) return;
+  if (running) {
+    warn("任务运行期间不能修改被测软件配置");
+    return;
+  }
+
+  pendingSoftwareEdit = item.key;
+  const form = document.getElementById("softwareCreateForm");
+  form.reset();
+  document.getElementById("softwareCreateName").value = item.display_name || "";
+  document.getElementById("softwareCreateDescription").value = item.description || "";
+  document.getElementById("softwareCreateVersion").value = item.version || "";
+  const inputCards = Array.isArray(item.input_filenames) && item.input_filenames.length
+    ? item.input_filenames
+    : [item.input_filename || "input.txt"];
+  document.getElementById("softwareCreateInputs").value = inputCards.join("\n");
+  const supportFiles = Array.isArray(item.support_files) ? item.support_files : [];
+  document.getElementById("softwareCreateSupportFiles").value = supportFiles.join("\n");
+  document.getElementById("softwareCreateOutput").value =
+    item.output_filename || "output.txt";
+  const argumentsValue = Array.isArray(item.arguments)
+    ? item.arguments.join(" ")
+    : (item.arguments || "");
+  document.getElementById("softwareCreateArguments").value =
+    argumentsValue || "{input} -o {output}";
+  document.getElementById("softwareCreateTimeout").value =
+    String(item.timeout_sec || 1800);
+
+  const keyInput = document.getElementById("softwareCreateKey");
+  keyInput.value = item.key;
+  keyInput.readOnly = true;
+  keyInput.title = "软件标识创建后不能修改";
+  document.getElementById("softwareCreateTitle").textContent = "编辑软件配置";
+  document.getElementById("softwareCreateHint").textContent =
+    "修改软件名称、输入卡、运行依赖或命令参数。已导入的程序和输入模板会保留。";
+  const button = document.getElementById("btnSoftwareCreate");
+  button.disabled = false;
+  button.textContent = "保存更改";
+  document.getElementById("softwareCreateModal").hidden = false;
+  setTimeout(() => {
+    const input = document.getElementById("softwareCreateName");
+    input.focus();
+    input.select();
+  }, 0);
 }
 
-async function createSoftwareDefinition(event) {
+function closeSoftwareCreate() {
+  pendingSoftwareEdit = null;
+  document.getElementById("softwareCreateModal").hidden = true;
+  document.getElementById("softwareCreateForm").reset();
+  const keyInput = document.getElementById("softwareCreateKey");
+  keyInput.readOnly = false;
+  keyInput.title = "";
+}
+
+async function saveSoftwareDefinition(event) {
   event.preventDefault();
+  const editingKey = pendingSoftwareEdit;
+  const editing = Boolean(editingKey);
   const inputCards = document
     .getElementById("softwareCreateInputs")
     .value.split(/[\n,;、]+/)
@@ -1456,14 +1539,14 @@ async function createSoftwareDefinition(event) {
     return;
   }
   if (inputCards.length > 12) {
-    warn("输入卡最多 12 个，请精简后再登记");
+    warn("输入卡最多 12 个，请精简后再保存");
     return;
   }
   if (supportFiles.length > 64) {
-    warn("默认运行依赖最多 64 项，请精简后再登记");
+    warn("默认运行依赖最多 64 项，请精简后再保存");
     return;
   }
-  if (softwareCatalog.some(item => item.key === payload.software_key)) {
+  if (!editing && softwareCatalog.some(item => item.key === payload.software_key)) {
     warn(`软件标识 ${payload.software_key} 已被占用，请更换`);
     return;
   }
@@ -1473,9 +1556,9 @@ async function createSoftwareDefinition(event) {
   }
   const button = document.getElementById("btnSoftwareCreate");
   button.disabled = true;
-  button.textContent = "正在登记...";
+  button.textContent = editing ? "正在保存..." : "正在登记...";
   try {
-    await api("/api/software/create", {
+    await api(editing ? "/api/software/update" : "/api/software/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -1484,15 +1567,16 @@ async function createSoftwareDefinition(event) {
     await loadProjectCatalog();
     const hint = document.getElementById("softwareLibraryHint");
     if (hint) {
-      hint.textContent =
-        `${payload.display_name} 已登记。下一步请在软件库中点击“导入”，选择它的 .exe 程序。`;
+      hint.textContent = editing
+        ? `${payload.display_name} 的软件配置已保存，已导入的程序和输入模板保持不变。`
+        : `${payload.display_name} 已登记。下一步请在软件库中点击“导入”，选择它的 .exe 程序。`;
     }
     warn("");
   } catch (e) {
-    warn("新增软件失败: " + e.message);
+    warn((editing ? "保存软件配置失败: " : "新增软件失败: ") + e.message);
   } finally {
     button.disabled = false;
-    button.textContent = "登记软件";
+    button.textContent = editing ? "保存更改" : "登记软件";
   }
 }
 
@@ -1594,20 +1678,30 @@ function openSaveProject(projectId) {
     ? projectCatalog.find(item => item.id === projectId)
     : currentProject;
   if (!project) return;
-  if (project.legacy) {
-    warn("旧版工作区没有可保存的项目元数据");
-    return;
-  }
   if (running) {
     warn("任务运行期间不能保存项目");
     return;
   }
   pendingSaveProject = project;
-  document.getElementById("saveProjectSoftware").textContent = project.software_name || "-";
   document.getElementById("saveProjectPath").textContent =
     project.absolute_path || project.path || "-";
   document.getElementById("saveProjectName").value = project.name || "";
   document.getElementById("saveProjectDescription").value = project.description || "";
+  const softwareSelect = document.getElementById("saveProjectSoftware");
+  const stateLabels = {
+    ready: "程序就绪",
+    missing_runtime: "缺少运行依赖",
+    missing_program: "缺少程序",
+    not_installed: "未导入程序",
+    invalid: "清单异常",
+  };
+  softwareSelect.innerHTML = softwareCatalog.map(item =>
+    `<option value="${esc(item.key)}" ${item.available ? "" : "disabled"}>`
+    + `${esc(item.display_name)} · ${esc(item.available
+      ? (stateLabels[item.state] || "可用")
+      : "尚未实现")}</option>`
+  ).join("");
+  softwareSelect.value = project.software_key || "";
   document.getElementById("saveProjectModal").hidden = false;
   setTimeout(() => {
     const input = document.getElementById("saveProjectName");
@@ -1627,10 +1721,19 @@ async function saveProject(event) {
   const project = pendingSaveProject;
   const name = document.getElementById("saveProjectName").value.trim();
   const description = document.getElementById("saveProjectDescription").value.trim();
+  const softwareKey = document.getElementById("saveProjectSoftware").value;
   if (!name) {
     warn("项目名称不能为空");
     return;
   }
+  if (!softwareKey) {
+    warn("请选择项目关联软件");
+    return;
+  }
+  const projectWasCurrent = Boolean(
+    currentProject && currentProject.id === project.id
+  );
+  const softwareChanged = softwareKey !== project.software_key;
 
   const button = document.getElementById("btnSaveProject");
   button.disabled = true;
@@ -1643,10 +1746,15 @@ async function saveProject(event) {
         project_id: project.id,
         name,
         description,
+        software_key: softwareKey,
       }),
     });
     closeSaveProject();
     await loadProjectCatalog();
+    if (projectWasCurrent && softwareChanged) {
+      resetProjectViews();
+      await reloadActiveProjectData();
+    }
     warn("");
   } catch (e) {
     warn("保存项目失败: " + e.message);
@@ -3262,11 +3370,29 @@ async function startRun() {
     document.getElementById("resultsTable").dataset.loaded = "";
     logAfter = 0;
     document.getElementById("runLog").textContent = "";
+    runReportPath = "";
+    document.getElementById("btnOpenReport").disabled = true;
     setButtons(true);
   } catch (e) { warn("启动失败: " + (e && e.message ? e.message : e)); }
 }
 
 async function stopRun() { await api("/api/stop", { method: "POST" }); document.getElementById("btnStop").disabled = true; }
+async function openRunReport() {
+  if (!runReportPath) {
+    warn("当前运行没有可打开的 HTML 报告");
+    return;
+  }
+  if (!hasTauri) {
+    warn("打开报告需要通过 Prisma 桌面端运行");
+    return;
+  }
+  try {
+    await invoke("open_report", { path: runReportPath });
+    warn("");
+  } catch (e) {
+    warn("打开报告失败: " + (e && e.message ? e.message : e));
+  }
+}
 function setButtons(run) {
   running = run;
   document.getElementById("btnStart").disabled = run;
@@ -3274,7 +3400,14 @@ function setButtons(run) {
   document.getElementById("btnOpenProject").disabled = run;
   document.getElementById("btnNewProject").disabled = run;
   document.getElementById("btnSaveCurrentProject").disabled =
-    run || !currentProject || currentProject.legacy;
+    run || !currentProject;
+}
+function syncRunReport(st) {
+  const path = !st.running && typeof st.html_report === "string" ? st.html_report : "";
+  runReportPath = path;
+  const button = document.getElementById("btnOpenReport");
+  button.disabled = !path;
+  button.title = path || "运行完成后打开 HTML 测试报告";
 }
 function statusClass(s) {
   if (s === "通过") return "status-ok";
@@ -3283,6 +3416,7 @@ function statusClass(s) {
   return "status-wait";
 }
 function renderRunCases(st) {
+  syncRunReport(st);
   const key = st.order.map(c => c + ":" + st.steps[c].total).join("|");
   if (key !== lastOrderKey) {
     lastOrderKey = key;

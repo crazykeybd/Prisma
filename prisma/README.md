@@ -26,20 +26,54 @@ pip install -r requirements.txt
 python -m api.server --port 18080
 ```
 
-旧版命令行入口仍可使用：`python -m run_prisma`；单线程对照入口为 `python -m run_prisma.executor_test`。
+命令行运行示例：
+
+```powershell
+.\.venv\Scripts\python.exe -m run_prisma --project projects\NUOSLSYS
+```
+
+CLI 在 stdout 只输出一段 JSON 执行摘要，运行日志和报告路径可从摘要中读取。
+退出码约定如下：
+
+| 退出码 | 含义 |
+|---:|---|
+| `0` | 全部用例执行并通过 |
+| `1` | 执行完成，但至少一个结果检查不通过 |
+| `2` | 步骤执行失败、运行被停止，或未能完成有效执行 |
+
+单线程对照入口仍可使用：`python -m run_prisma.executor_test`。
+
+### 报告与基线
+
+每次运行都会在项目内生成独立制品：
+
+```text
+projects/<项目名>/exports/reports/<run_id>/
+  run.json          # 本次运行清单
+  results.json      # 完整结果、检查项、误差与追溯信息
+  results.xlsx      # Excel 结果表
+  report.html       # 可离线打开的 HTML 报告
+  junit.xml         # CI/JUnit 结果
+  charts/           # 热力图、趋势图和误差分布 SVG
+```
+
+桌面端任务完成后，可在“运行测试”页点击 **打开报告** 直接打开 HTML 报告。
+首次通过且包含结果检查的用例会写入
+`projects/<项目名>/baselines/<软件类型>/<用例编号>.json`，并登记到
+`baselines/index.json`；后续运行使用该基线计算误差、异常点和统计指标，不会自动覆盖首次基线。
 
 ## 多软件项目管理
 
 界面顶部始终显示当前项目及其绝对路径。“项目”页负责新建、打开、保存、切换和删除项目；“软件库”页单独管理可用适配器、被测程序和软件库目录。
 
-- 每个项目固定对应一个已注册软件。RELAP5 和 NUSOL-SYSLMR 当前可创建可运行项目；预留软件在选择框中显示“尚未实现”并禁止创建。
+- 每个项目关联一个已注册软件，项目创建后仍可修改关联软件。RELAP5 和 NUSOL-SYSLMR 当前可创建可运行项目；预留软件在选择框中显示“尚未实现”并禁止选择。
 - 被测程序、运行依赖和输入模板集中放在软件库。新建项目会自动生成起始剧本、结果表和配置，并从对应软件的 `templates/` 复制输入模板；软件库没有模板时才回退到旧版 `inputs/` 示例。
 - 打开项目时只能选择项目根目录中的 `project.json`。系统会校验 `project.json`、`config.yaml` 和软件适配器，再把项目复制到当前 `projects/` 项目库并激活；不会直接接管或覆盖原目录，普通文件夹、`data/` 子目录和任意 JSON 文件都不能作为项目打开。
-- 保存项目用于修改项目名称和说明，并更新 `updated_at`。项目所在文件夹保持不变，项目内剧本、输入卡、结果和日志由各自页面继续保存。
+- 保存项目可修改项目名称、说明和关联软件，并更新 `updated_at`。切换软件时同步更新 `project.json` 的 `software_key` 以及 `config.yaml` 的 `softwareType`、`executableName`；项目文件夹和已有测试文件保持不变。
 - 项目创建后自动激活。顶部下拉框和项目表都可以切换项目；切换后界面会重新读取该项目的配置、剧本、结果、文件和日志。
 - 任务运行期间不能新建、打开、切换、保存或删除当前项目，避免运行现场与激活项目不一致。
 - 删除项目必须输入完整项目名称二次确认。删除会永久移除该项目的剧本、输入卡、结果、日志和运行现场。
-- 旧版工作区 `__legacy__` 用于兼容原有的 `data/`、`inputs/`、`test_cases/` 和 `log/`。它可切换使用，但不能通过项目管理删除。
+- 旧版工作区 `__legacy__` 用于兼容原有的 `data/`、`inputs/`、`test_cases/` 和 `log/`。它可以像普通项目一样修改名称、说明和关联软件；首次保存会在根目录创建 `project.json`，但仍不能通过项目管理删除。
 
 项目目录结构：
 
@@ -52,7 +86,8 @@ projects/
     inputs/               # 本项目使用的输入卡；可选的本地程序覆盖文件
     test_cases/           # 每次运行的隔离现场
     log/                  # 该项目自己的 prisma_run.log
-    exports/              # 后续导出文件
+    exports/reports/      # 每次运行独立的 JSON/Excel/HTML/JUnit/SVG 报告
+    baselines/            # 首次通过结果形成的回归基线及索引
 ```
 
 当前激活项目记录在 `projects/.active`。执行器和 API 会把所有读写路径限制在当前项目内；绝对路径或 `..` 不能越出项目目录。项目运行日志写入项目内的 `log/prisma_run.log`，不再写入全局日志。
@@ -141,7 +176,7 @@ software-library/
 5. 真实运行时按参数模板直接调用程序（不经过 shell 拼接），工作目录为算例运行目录，标准输出写入该目录的 `screen.txt`；程序没有生成声明的输出文件时步骤明确失败。
 6. `check_output` 可用通用 `key: value` 或 `key = value` 格式提取结果；需要专用解析时再实现 Python 适配器。
 
-用户新增的软件可以随时重新登记同名标识来修改参数（已导入的程序和模板会保留），也可以在表格中“删除”；仍有项目引用该软件时会拒绝删除并提示先删除项目。
+软件库内的所有软件（包括内置 RELAP5、NUSOL-SYSLMR、预留软件和用户新增软件）都可在表格中点击“编辑”修改显示名称、说明、版本、输入卡、默认依赖、输出文件名、命令行参数和超时。软件标识是目录名和项目关联键，创建后不能修改；更新配置不会覆盖已导入的程序、运行依赖清单和输入模板。内置及预留软件不能删除，预留软件也不能导入程序或创建可运行项目。用户新增软件可以在表格中“删除”；仍有项目引用该软件时会拒绝删除并提示先删除项目。
 
 ### 统一运行关键词 `run_software`
 
@@ -168,14 +203,62 @@ TC-RELAP-MINI   RELAP-MINI-001  folder_prep   TC-RELAP-MINI relap5\mini.i relap5
 NUSOL-SYSLMR 示例（程序、`tpfbipb` 和 `tpfh2o` 优先从软件库取得，`indta.i` 可来自项目输入模板）：
 
 ```text
-编号              运行目录          action        object                参数1                    参数2                       参数3     参数4
-TC-NUSOL-LMR      NUSOL-LMR-001     folder_prep   TC-NUSOL-LMR          nusolsyslmr\indta.i      nusolsyslmr\nusolsyslmr.exe
-                  NUSOL-LMR-001     run_software  nusolsyslmr.exe       nusolsyslmr              input.txt                   outdta    600
+编号              运行目录          action        object                参数1                 参数2                       参数3          参数4
+TC-NUSOL-LMR      NUSOL-LMR-001     folder_prep   TC-NUSOL-LMR          nusolsyslmr\indta.i   nusolsyslmr\nusolsyslmr.exe
+                  NUSOL-LMR-001     run_software  nusolsyslmr.exe       nusolsyslmr           indta.i                     outdta         1800
+                  NUSOL-LMR-001     check_output  outdta                p@304010000           8.93893E+05                 nusolsyslmr
+                  NUSOL-LMR-001     check_output  outdta                tempf@304010000       753.142                     nusolsyslmr
+                  NUSOL-LMR-001     check_output  outdta                p@364010000           7.64535E+06                 nusolsyslmr
+                  NUSOL-LMR-001     check_output  outdta                tempf@364010000       466.913                     nusolsyslmr
 ```
 
-该示例只演示运行步骤。结果检查继续使用 RELAP5 的 `p@控制体编号`、`tempf@控制体编号` 语法，
+结果检查使用 `p@控制体编号`、`tempf@控制体编号` 语法，
 也可使用 `check_output` 的正则形式；期望值必须取自当前算例的实际输出，不能直接套用其他输入卡的值。
 NUSOL-SYSLMR 使用随程序提供的 `tpfbipb` 和 `tpfh2o`；复制时会先放公共物性文件，再由软件专用目录覆盖。
+
+### NUSOL-SYSLMR 实机验证
+
+已验证版本为 `NUSOLSYS-LMVer:1.1.1`，调用方式为：
+
+```powershell
+nusolsyslmr.exe -i indta -o outdta
+```
+
+该程序是 32 位 Intel Fortran 2013 Debug 构建，软件库
+`software-library/nusolsyslmr/bin/` 中必须同时包含以下运行库：
+
+| 文件 | 字节数 |
+|---|---:|
+| `libifcoremdd.dll` | 1,170,360 |
+| `libifportmd.dll` | 271,288 |
+| `libmmd.dll` | 4,091,832 |
+| `msvcr120d.dll` | 1,824,424 |
+
+软件库页会把缺少依赖的程序显示为“缺少运行依赖”，真实运行前也会再次检查，
+避免只报笼统的启动失败。项目 `inputs/nusolsyslmr/` 可用于单项目覆盖，但发布或
+共享软件库时必须保留这些 DLL。
+
+仓库内的 `templates/indta.i` 本身就是 10 秒短算例，第 52 行为：
+
+```text
+201   10.0  1.0e-10   0.005      3     200   2000   2000
+```
+
+该算例约 13 秒完成，应看到退出码 `0`、2 次 major edit、无诊断行，并包含：
+
+```text
+Final time=    10.0000
+Transient terminated by end of time step cards.
+```
+
+该算例的代表值包括 `p@304010000 = 8.93893E+05`、
+`tempf@304010000 = 753.142`、`p@364010000 = 7.64535E+06` 和
+`tempf@364010000 = 466.913`，可用于核对结果解析链路。设置
+`PRISMA_REAL_NUSOL=1` 可启用对应的可选实机回归测试。
+
+500 秒版本仅用于发布前完整验证，不放入仓库模板。它在同一机器上约 699 秒完成，
+退出码 `0`、52 次 major edit、无诊断行；`outdta` 约 8.34 MB，
+`rstplt` 约 41.56 MB，不适合作为每次提交都运行的快速测试。
 
 旧的 `run_relap5` 仍可使用，内部已委托给同一 RELAP5 适配器，既有剧本无需迁移。`check_output` 的参数 3 可填写软件类型；留空时保持旧的 RELAP5 解析行为。输出同时包含 `key: value` 通用格式时优先按该格式提取。
 

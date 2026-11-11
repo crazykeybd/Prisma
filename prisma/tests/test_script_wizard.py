@@ -261,6 +261,33 @@ class WizardDefaultsTests(WizardBase):
         self.assertTrue(data["input_card"])
         self.assertIsInstance(data["inputs"], list)
 
+    def test_nusolsyslmr_defaults_and_generated_rows_match(self):
+        project = FakeProject(
+            self.base / "projects" / "nusol",
+            software_key="nusolsyslmr",
+        )
+        (project.root / "inputs").mkdir(parents=True, exist_ok=True)
+
+        data = wizard_defaults(project, self.library)
+        self.assertEqual(data["executable"], "nusolsyslmr.exe")
+        self.assertEqual(data["input_card"], "indta.i")
+        self.assertEqual(data["output"], "outdta")
+        self.assertEqual(data["timeout"], 1800)
+
+        cases = build_cases({}, project, self.library)
+        self.assertEqual(cases[0]["rows"][0][3:6], [
+            "indta.i",
+            "nusolsyslmr.exe",
+            "",
+        ])
+        self.assertEqual(cases[0]["rows"][1][2:7], [
+            "nusolsyslmr.exe",
+            "nusolsyslmr",
+            "indta.i",
+            "outdta",
+            "1800",
+        ])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -3,10 +3,19 @@
 from __future__ import annotations
 
 import logging
+import re
 import shutil
 import subprocess
+import time
 from pathlib import Path
 
+from common.results import (
+    environment_summary,
+    file_record,
+    screen_excerpt,
+    sha256_file,
+    utc_now,
+)
 from common.util_prisma import ROOT, read_config, resolve_path
 from software.base import (
     SoftwareAdapterError,
@@ -15,7 +24,11 @@ from software.base import (
     resolve_output_path,
 )
 from software.executables import destination_executable, resolve_executable
-from software.library import SoftwareLibrary
+from software.library import (
+    SoftwareLibrary,
+    missing_runtime_files,
+    required_runtime_files,
+)
 from software.relap5_output import analyze, extract_value
 
 
@@ -53,13 +66,85 @@ class Relap5Adapter:
     aliases = ("relap", "relap5.exe")
     executable_name = "relap5.exe"
     timeout_config_key = "relapTimeoutSec"
+    input_filename = "input.txt"
+    input_filenames = ("input.txt",)
+    support_files = ()
+    arguments = ("-i", "{input}", "-o", "{output}")
+    output_filename = "outdta"
+    timeout_sec = 600
     requires_input_ok = True
+    required_runtime_files = ()
+    runtime_help = ""
+    simulate_output = (
+        "0$$$$$$$$ Input processing completed successfully.\n"
+        "0MAJOR EDIT !!!time=    0.00000     sec\n"
+    )
 
     def analyze_output(self, output_path) -> dict:
         return analyze(output_path)
 
     def extract_value(self, text: str, key: str):
         return extract_value(text, key)
+
+    def software_version(self) -> str:
+        try:
+            library = getattr(self, "library", None) or SoftwareLibrary()
+            return str(library.describe(self).get("version") or "")
+        except Exception:
+            return ""
+
+    def _result_evidence(
+        self,
+        *,
+        request: SoftwareRunRequest,
+        output_path: Path,
+        mode: str,
+        started_at: str,
+        started_clock: float,
+        returncode: int | None = None,
+        analysis: dict | None = None,
+        executable_source: Path | None = None,
+        executable_path: Path | None = None,
+        input_path: Path | None = None,
+        command: tuple[str, ...] = (),
+    ) -> SoftwareRunResult:
+        run_dir = self._safe_run_dir(request)
+        screen_path = run_dir / "screen.txt"
+        file_candidates = (
+            (output_path, "output"),
+            (run_dir / "outdta", "outdta"),
+            (run_dir / "rstplt", "restart"),
+            (run_dir / "stripf", "strip"),
+            (screen_path, "screen"),
+        )
+        output_files = []
+        seen: set[str] = set()
+        for path, role in file_candidates:
+            record = file_record(path, base=run_dir, role=role)
+            if not record or record["absolute_path"] in seen:
+                continue
+            seen.add(record["absolute_path"])
+            output_files.append(record)
+        finished_at = utc_now()
+        return SoftwareRunResult(
+            output_path=output_path,
+            returncode=returncode,
+            analysis=analysis,
+            software_type=self.key,
+            software_version=self.software_version(),
+            mode=mode,
+            executable_source=executable_source,
+            executable_path=executable_path,
+            input_path=input_path,
+            command=command,
+            started_at=started_at,
+            finished_at=finished_at,
+            duration_seconds=max(0.0, time.monotonic() - started_clock),
+            environment=environment_summary(),
+            output_files=tuple(output_files),
+            screen_path=screen_path if screen_path.is_file() else None,
+            screen_excerpt=screen_excerpt(screen_path),
+        )
 
     @staticmethod
     def _project_root(request: SoftwareRunRequest) -> Path:
@@ -76,6 +161,37 @@ class Relap5Adapter:
                 raise SoftwareAdapterError("运行目录必须位于当前项目内") from exc
         return run_dir
 
+    def _copy_runtime_overrides(
+        self, destination: Path, request: SoftwareRunRequest
+    ) -> None:
+        """Apply project-local runtime overrides before validating DLLs."""
+        root = self._project_root(request)
+        required = required_runtime_files(self)
+        if not required:
+            return
+        logger = logging.getLogger("prisma")
+        # Generic project files load first; software-specific files win.
+        source_roots = (root / "inputs", root / "inputs" / self.key)
+        for source_root in source_roots:
+            if not source_root.is_dir():
+                continue
+            for relative in required:
+                source = source_root / relative
+                if not source.is_file() or source.stat().st_size <= 0:
+                    continue
+                target = destination.parent / relative
+                if target.resolve() == source.resolve():
+                    continue
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, target)
+                logger.info(
+                    "[%s] %s runtime override %s <- %s",
+                    request.case_no,
+                    self.key,
+                    relative,
+                    source,
+                )
+
     def _prepare_executable(self, request: SoftwareRunRequest) -> tuple[Path, Path]:
         root = self._project_root(request)
         executable = resolve_executable(
@@ -86,9 +202,29 @@ class Relap5Adapter:
                 f"no valid {self.display_name} executable found for {request.executable}; "
                 "zero-byte, non-PE and non-ELF placeholders are ignored"
             )
+        input_names = {
+            str(request.input_name or "").strip(),
+            str(getattr(self, "input_filename", "") or "").strip(),
+            *(str(name).strip() for name in getattr(self, "input_filenames", ()) or ()),
+            "indta",
+            "input.txt",
+        }
         destination = destination_executable(
-            executable, request.run_dir, self.key, project_root=root
+            executable,
+            request.run_dir,
+            self.key,
+            project_root=root,
+            exclude_names=input_names,
         )
+        self._copy_runtime_overrides(destination, request)
+        missing = missing_runtime_files(
+            destination.parent, required_runtime_files(self)
+        )
+        if missing:
+            detail = f" {self.runtime_help}" if self.runtime_help else ""
+            raise SoftwareAdapterError(
+                f"{self.display_name} 缺少运行依赖: {', '.join(missing)}。{detail}".rstrip()
+            )
         return executable, destination
 
     def _copy_property_files(
@@ -123,7 +259,11 @@ class Relap5Adapter:
     def _stage_input(self, request: SoftwareRunRequest) -> Path:
         run_dir = self._safe_run_dir(request)
         root = self._project_root(request)
-        requested_name = str(request.input_name or "").strip()
+        requested_name = str(
+            request.input_name
+            or getattr(self, "input_filename", "")
+            or ""
+        ).strip()
         if not requested_name or Path(requested_name).name != requested_name:
             raise SoftwareAdapterError("输入卡名必须是文件名，不能包含目录")
         common_fallbacks = [
@@ -134,7 +274,8 @@ class Relap5Adapter:
             root / "inputs" / "indta",
             root / "inputs" / self.key / "indta",
         ]
-        library_templates = SoftwareLibrary().template_files(self.key)
+        library = getattr(self, "library", None) or SoftwareLibrary()
+        library_templates = library.template_files(self.key)
         library_named = [
             path for path in library_templates if path.name.casefold() == requested_name.casefold()
         ]
@@ -173,33 +314,80 @@ class Relap5Adapter:
             shutil.copy2(input_source, indta)
         return indta
 
+    def build_command(
+        self,
+        request: SoftwareRunRequest,
+        executable: Path | str | None = None,
+        *,
+        input_name: str | None = None,
+        output_name: str | None = None,
+    ) -> list[str]:
+        """按软件配置展开运行参数模板。"""
+        program = (
+            Path(executable)
+            if executable
+            else Path(str(request.executable or self.executable_name or ""))
+        )
+        staged_input = input_name or "indta"
+        selected_output = output_name or (
+            str(request.output_name or "").strip() or self.output_filename
+        )
+        values = {
+            "input": staged_input,
+            "inputs": staged_input,
+            "input1": staged_input,
+            "output": selected_output,
+            "exe": program.name,
+        }
+        command = [str(program)]
+        for token in getattr(self, "arguments", ()) or ():
+            expanded = str(token)
+            for name, value in values.items():
+                expanded = expanded.replace("{" + name + "}", value)
+            expanded = re.sub(r"\{input\d{1,2}\}", "", expanded)
+            if expanded.strip():
+                command.append(expanded)
+        return command
+
     def execute(self, request: SoftwareRunRequest) -> SoftwareRunResult:
         logger = logging.getLogger("prisma")
         root = self._project_root(request)
         run_dir = self._safe_run_dir(request)
         run_dir.mkdir(parents=True, exist_ok=True)
+        started_at = utc_now()
+        started_clock = time.monotonic()
         output_path = resolve_output_path(
-            run_dir, request.output_name, "outdta", label="输出文件名"
+            run_dir,
+            request.output_name,
+            self.output_filename,
+            label="输出文件名",
         )
+        output_name = output_path.relative_to(run_dir.resolve()).as_posix()
         config = read_config(request.config_path)
         mode = str(config.get("runMode", "simulate")).lower()
         if mode != "real":
-            output_path.write_text(
-                "0$$$$$$$$ Input processing completed successfully.\n"
-                "0MAJOR EDIT !!!time=    0.00000     sec\n",
-                encoding="utf-8",
-            )
+            output_path.write_text(self.simulate_output, encoding="utf-8")
             logger.info("[%s] %s(simulate) -> %s",
                         request.case_no, self.key, output_path)
-            return SoftwareRunResult(output_path=output_path, analysis={"input_ok": True})
+            requested_input = str(request.input_name or "").strip()
+            input_path = run_dir / requested_input if requested_input else None
+            return self._result_evidence(
+                request=request,
+                output_path=output_path,
+                mode="simulate",
+                started_at=started_at,
+                started_clock=started_clock,
+                analysis={"input_ok": True},
+                input_path=input_path if input_path and input_path.is_file() else None,
+            )
 
         executable_source, executable = self._prepare_executable(request)
         logger.info("[%s] %s executable=%s",
                     request.case_no, self.key, executable)
         self._copy_property_files(executable_source.parent, run_dir, project_root=root)
-        self._stage_input(request)
+        staged_input = self._stage_input(request)
 
-        # 该 exe 拒绝覆盖已有 outdta；重启文件也一并清理，确保每次从干净状态开始。
+        # 该 exe 拒绝覆盖已有输出；重启文件也一并清理，确保从干净状态开始。
         for stale_path in (
             run_dir / "outdta",
             run_dir / "rstplt",
@@ -209,11 +397,28 @@ class Relap5Adapter:
             if stale_path.is_file():
                 stale_path.unlink()
 
-        timeout_sec = int(request.timeout or config.get(self.timeout_config_key, 1800) or 1800)
+        timeout_sec = int(
+            request.timeout
+            or config.get(self.timeout_config_key)
+            or self.timeout_sec
+            or 1800
+        )
+        command = self.build_command(
+            request,
+            executable,
+            input_name=staged_input.name,
+            output_name=output_name,
+        )
+        logger.info(
+            "[%s] %s command=%s",
+            request.case_no,
+            self.key,
+            command,
+        )
         try:
             with (run_dir / "screen.txt").open("w", encoding="utf-8", errors="replace") as screen:
                 process = subprocess.run(
-                    [str(executable), "-i", "indta", "-o", "outdta"],
+                    command,
                     cwd=run_dir,
                     stdout=screen,
                     stderr=subprocess.STDOUT,
@@ -227,27 +432,32 @@ class Relap5Adapter:
             raise SoftwareAdapterError(
                 f"{self.display_name} failed to start: {exc}") from exc
 
-        outdta = run_dir / "outdta"
-        if not outdta.is_file():
+        if not output_path.is_file():
             hint = _windows_startup_hint(process.returncode)
             detail = f"; {hint}" if hint else ""
             raise SoftwareAdapterError(
-                f"{self.display_name} produced no outdta "
+                f"{self.display_name} produced no {output_name} "
                 f"(returncode={process.returncode}{detail}); see screen.txt"
             )
-        info = self.analyze_output(outdta)
+        info = self.analyze_output(output_path)
         for diagnostic in info["diagnostics"][:20]:
-            logger.warning("[%s] outdta: %s", request.case_no, diagnostic)
+            logger.warning("[%s] %s: %s", request.case_no, output_name, diagnostic)
         logger.info(
             "[%s] %s returncode=%s, input_ok=%s, major_edits=%s, diagnostics=%s -> %s",
             request.case_no, self.key, process.returncode,
             info["input_ok"], info["major_edits"],
-            len(info["diagnostics"]), outdta,
+            len(info["diagnostics"]), output_path,
         )
-        if outdta.resolve() != output_path.resolve():
-            shutil.copy2(outdta, output_path)
-        return SoftwareRunResult(
+        return self._result_evidence(
+            request=request,
             output_path=output_path,
+            mode="real",
+            started_at=started_at,
+            started_clock=started_clock,
             returncode=process.returncode,
             analysis=info,
+            executable_source=executable_source,
+            executable_path=executable,
+            input_path=staged_input,
+            command=tuple(command),
         )

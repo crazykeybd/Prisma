@@ -15,6 +15,17 @@ from pathlib import Path
 
 from common.input_deck_parser import apply_input_edit
 from common.run_context import ContextPathError, RunContext
+from common.results import (
+    compare_points,
+    environment_summary,
+    file_record,
+    point_from_key,
+    screen_excerpt,
+    sha256_file,
+    utc_now,
+    write_check_record,
+    write_run_trace,
+)
 from common.util_prisma import ROOT, init_log, read_config, resolve_path, write_result_to_check
 from keywords.keyword_store import BUILTIN_ACTIONS, COMMAND_IMPL, find_custom
 from software import (
@@ -37,6 +48,79 @@ from software.relap5_output import extract_value as _relap_extract_value
 
 #: 自定义关键词命令模板里的占位符，例如 ``{dir}``、``{p1}``。
 _TEMPLATE_RE = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
+
+
+def _software_version(adapter) -> str:
+    try:
+        value = getattr(adapter, "software_version", "")
+        return str(value() if callable(value) else value or "")
+    except Exception:
+        return ""
+
+
+def _trace_path(path, base):
+    record = file_record(path, base=base)
+    return record or {}
+
+
+def _basic_run_trace(
+    *,
+    case_no,
+    software_type,
+    status,
+    started_at,
+    started_clock,
+    mode="",
+    software_version="",
+    output_path=None,
+    input_path=None,
+    executable_path=None,
+    executable_source=None,
+    command=(),
+    returncode=None,
+    analysis=None,
+    run_path=None,
+    screen_path=None,
+    output_files=(),
+    error="",
+):
+    output_record = _trace_path(output_path, run_path)
+    input_record = _trace_path(input_path, run_path)
+    executable_record = _trace_path(executable_path, run_path)
+    executable_source_hash = sha256_file(executable_source)
+    environment = environment_summary()
+    return {
+        "case_no": str(case_no),
+        "status": status,
+        "software_type": str(software_type or ""),
+        "software_version": str(software_version or ""),
+        "mode": str(mode or ""),
+        "started_at": started_at,
+        "finished_at": utc_now(),
+        "duration_seconds": round(max(0.0, time.monotonic() - started_clock), 6),
+        "returncode": returncode,
+        "command": [str(item) for item in (command or ())],
+        "executable_path": executable_record.get("path", ""),
+        "executable_sha256": (
+            executable_source_hash
+            or executable_record.get("sha256", "")
+        ),
+        "input_path": input_record.get("path", ""),
+        "input_sha256": input_record.get("sha256", ""),
+        "output_path": output_record.get("path", ""),
+        "output_sha256": output_record.get("sha256", ""),
+        "output_files": list(output_files or ()),
+        "screen_path": (
+            _trace_path(screen_path, run_path).get("path", "")
+            if screen_path
+            else ""
+        ),
+        "screen_excerpt": screen_excerpt(screen_path) if screen_path else "",
+        "analysis": analysis or {},
+        "host": environment.get("host", ""),
+        "environment": environment,
+        "error": str(error or ""),
+    }
 
 
 def is_windows_executable(path):
@@ -96,11 +180,60 @@ def _declared_input_names(software_key):
         adapter = get_adapter(software_key)
     except SoftwareAdapterError:
         return []
-    return [
+    names = [
         str(name).strip()
         for name in (getattr(adapter, "input_filenames", ()) or ())
         if str(name).strip()
     ]
+    if not names:
+        primary = str(getattr(adapter, "input_filename", "") or "").strip()
+        if primary:
+            names.append(primary)
+    return list(dict.fromkeys(names))
+
+
+def _stage_input_cards(
+    logger, case_no, out_dir, root, software_key, input_src, input_name,
+    declared_inputs,
+):
+    """Stage input cards last so they override files copied from ``bin/``."""
+    staged = {"input.txt": input_src}
+    primary = Path(input_name).name
+    if primary.casefold() != "input.txt":
+        shutil.copy2(input_src, out_dir / primary)
+        staged[primary.casefold()] = input_src
+
+    for name in declared_inputs:
+        marker = name.casefold()
+        if marker in staged:
+            continue
+        source = next(
+            (
+                path for path in (
+                    root / "inputs" / software_key / name,
+                    root / "inputs" / name,
+                )
+                if path.is_file()
+            ),
+            None,
+        )
+        if source is not None:
+            shutil.copy2(source, out_dir / name)
+            staged[marker] = source
+            continue
+        bundled = out_dir / name
+        if bundled.is_file():
+            staged[marker] = bundled
+            continue
+        logger.warning(
+            "[%s] declared input card not found: %s", case_no, name)
+
+    shutil.copy2(input_src, out_dir / "input.txt")
+    logger.info(
+        "[%s] folder_prep staged input cards: %s",
+        case_no,
+        ", ".join(sorted(staged)),
+    )
 
 
 def _software_support_config(software_key):
@@ -350,45 +483,7 @@ class KeyPrisma:
         if input_src is None:
             logger.error("[%s] input deck not found: %s", case_no, input_name)
             return False
-        shutil.copy2(input_src, out_dir / "input.txt")
-
-        # 多输入卡软件：把登记的每张输入卡按原文件名放进运行目录，
-        # 避免被测程序因找不到同名辅助输入卡而失败。
         declared_inputs = _declared_input_names(software_key)
-        if len(declared_inputs) > 1:
-            staged = {"input.txt": input_src}
-            primary = Path(input_name).name
-            if primary and primary.casefold() != "input.txt":
-                try:
-                    shutil.copy2(input_src, out_dir / primary)
-                    staged[primary.casefold()] = input_src
-                except OSError as exc:
-                    logger.warning(
-                        "[%s] cannot stage %s: %s", case_no, primary, exc)
-            for name in declared_inputs:
-                if name.casefold() in staged:
-                    continue
-                source = next(
-                    (
-                        path for path in (
-                            root / "inputs" / name,
-                            root / "inputs" / software_key / name,
-                            out_dir / name,
-                        )
-                        if path.is_file()
-                    ),
-                    None,
-                )
-                if source is None:
-                    logger.warning(
-                        "[%s] declared input card not found: %s", case_no, name)
-                    continue
-                if source.resolve() != (out_dir / name).resolve():
-                    shutil.copy2(source, out_dir / name)
-                staged[name.casefold()] = source
-            logger.info(
-                "[%s] folder_prep staged input cards: %s",
-                case_no, ", ".join(sorted(staged)))
 
         exe_src = None
         if executable_name:
@@ -470,6 +565,19 @@ class KeyPrisma:
                                     case_no, destination, exc)
                                 continue
                             raise
+        # Input cards must be copied after software-library bin files and
+        # support files. A bundled indta.i or input.txt must never replace the
+        # card selected by the test case.
+        _stage_input_cards(
+            logger,
+            case_no,
+            out_dir,
+            root,
+            software_key,
+            input_src,
+            input_name,
+            declared_inputs,
+        )
         logger.info("[%s] folder_prep -> %s", case_no, out_dir)
         return True
 
@@ -577,6 +685,45 @@ class KeyPrisma:
         """
         root = KeyPrisma._project_root(context)
         logger = init_log(root / "log")
+        run_path = None
+        output_record = {}
+        comparison = None
+        actual = None
+        resolved_software = str(software_type or "relap5").strip() or "relap5"
+
+        def record(status, error="", *, actual_value=None):
+            if run_path is None:
+                return
+            actual_point = point_from_key(actual_value, key)
+            expected_point = point_from_key(expected_value, key)
+            payload = {
+                "case_no": str(case_no),
+                "status": status,
+                "passed": status == "passed",
+                "software_type": resolved_software,
+                "key": str(key or ""),
+                "expected_value": expected_value,
+                "actual_value": actual_value,
+                "output_file": output_record.get("path", ""),
+                "output_sha256": output_record.get("sha256", ""),
+                "output": output_record,
+                "point": actual_point,
+                "expected_point": expected_point,
+                "comparison": comparison,
+                "rtol": 1e-4,
+                "atol": 1e-6,
+                "error": str(error or ""),
+                "host": environment_summary().get("host", ""),
+            }
+            try:
+                write_check_record(run_path, payload)
+            except Exception as trace_error:
+                logger.exception(
+                    "[%s] cannot write check trace: %s",
+                    case_no,
+                    trace_error,
+                )
+
         try:
             run_path = _scoped_path(
                 context, run_dir, root / "test_cases", "运行目录"
@@ -584,13 +731,20 @@ class KeyPrisma:
             path = _scoped_path(context, object_name, run_path, "输出文件")
         except (ContextPathError, ValueError) as exc:
             logger.error("[%s] check_output path rejected: %s", case_no, exc)
+            record("error", exc)
             return False
         if not path.exists():
             logger.error("[%s] output not found: %s", case_no, path)
+            record("error", f"输出文件不存在: {path}")
             return False
-        text = path.read_text(encoding="utf-8", errors="replace")
+        output_record = file_record(path, base=run_path, role="output") or {}
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError as exc:
+            logger.error("[%s] cannot read output %s: %s", case_no, path, exc)
+            record("error", f"输出文件读取失败: {exc}")
+            return False
         pattern = re.compile(rf"^\s*{re.escape(key)}\s*:\s*(.+?)\s*$", re.I)
-        actual = None
         for line in text.splitlines():
             match = pattern.match(line)
             if match:
@@ -601,39 +755,64 @@ class KeyPrisma:
             requested_type = str(software_type or "").strip()
             try:
                 adapter = get_adapter(requested_type or "relap5")
+                resolved_software = adapter.key
                 actual = adapter.extract_value(text, key)
             except AdapterNotImplementedError as exc:
                 logger.error("[%s] check_output: %s", case_no, exc)
+                record("error", exc)
                 return False
             except SoftwareAdapterError as exc:
                 logger.error("[%s] check_output software type error: %s", case_no, exc)
+                record("error", exc)
                 return False
             except Exception as exc:
                 logger.exception("[%s] check_output output parser failed: %s", case_no, exc)
+                record("error", exc)
                 return False
 
         if actual is None:
             logger.error("[%s] key not found in output: %s", case_no, key)
+            record("error", f"输出中未找到检查键: {key}")
             return False
+
+        comparison = compare_points(
+            [point_from_key(actual, key)],
+            [point_from_key(expected_value, key)],
+            rtol=1e-4,
+            atol=1e-6,
+        )
+        passed = bool(comparison.get("passed"))
+        conclusion = "通过" if passed else "不通过"
+
         config = KeyPrisma._project_config(context)
         try:
-            check_file = _scoped_path(
-                context,
-                config.get("checkConfigPath"),
-                root,
-                "结果文件",
+            configured_check_file = config.get("checkConfigPath")
+            check_file = (
+                _scoped_path(
+                    context,
+                    configured_check_file,
+                    root,
+                    "结果文件",
+                )
+                if configured_check_file
+                else None
             )
         except (ContextPathError, ValueError) as exc:
             logger.error("[%s] check_output result path rejected: %s", case_no, exc)
+            record("error", exc, actual_value=actual)
             return False
-        try:
-            actual_number, expected_number = float(actual), float(expected_value)
-            passed = abs(actual_number - expected_number) <= max(
-                1e-6, 1e-4 * abs(expected_number))
-        except (TypeError, ValueError):
-            passed = str(actual).strip() == str(expected_value).strip()
-        conclusion = "通过" if passed else "不通过"
-        write_result_to_check(check_file, case_no, actual, conclusion, base=root)
+
+        if check_file is not None:
+            try:
+                write_result_to_check(
+                    check_file, case_no, actual, conclusion, base=root
+                )
+            except Exception as exc:
+                logger.exception("[%s] cannot update result table: %s", case_no, exc)
+                record("error", f"结果表写入失败: {exc}", actual_value=actual)
+                return False
+
+        record("passed" if passed else "failed", actual_value=actual)
         logger.info("[%s] check_output %s=%s (expected=%s) -> %s",
                     case_no, key, actual, expected_value, conclusion)
         return passed
@@ -645,6 +824,59 @@ class KeyPrisma:
         root = KeyPrisma._project_root(context)
         project_root = Path(context.root).resolve() if context else None
         logger = init_log(root / "log")
+        run_path = None
+        adapter = None
+        output_path = None
+        input_leaf = ""
+        started_at = utc_now()
+        started_clock = time.monotonic()
+
+        def output_candidates():
+            if run_path is None:
+                return []
+            candidates = []
+            if output_path:
+                candidates.append(run_path / output_path)
+            candidates.extend((run_path / "outdta", run_path / "screen.txt"))
+            records = []
+            seen = set()
+            for candidate in candidates:
+                item = file_record(candidate, base=run_path)
+                if not item or item["absolute_path"] in seen:
+                    continue
+                seen.add(item["absolute_path"])
+                records.append(item)
+            return records
+
+        def record_failure(error):
+            if run_path is None:
+                return
+            try:
+                trace = _basic_run_trace(
+                    case_no=case_no,
+                    software_type=(
+                        getattr(adapter, "key", "") if adapter else software_type
+                    ),
+                    software_version=_software_version(adapter),
+                    status="failed",
+                    mode="",
+                    started_at=started_at,
+                    started_clock=started_clock,
+                    output_path=(run_path / output_path) if output_path else None,
+                    input_path=(run_path / input_leaf) if input_leaf else None,
+                    run_path=run_path,
+                    screen_path=run_path / "screen.txt",
+                    output_files=output_candidates(),
+                    error=error,
+                )
+                write_run_trace(run_path, trace)
+            except Exception as trace_error:
+                logger.exception(
+                    "[%s] cannot write failed run trace: %s",
+                    case_no,
+                    trace_error,
+                )
+
         try:
             run_path = _scoped_path(
                 context, run_dir, root / "test_cases", "运行目录"
@@ -684,24 +916,63 @@ class KeyPrisma:
                 if not analysis.get("input_ok"):
                     logger.error("[%s] run_software(%s) 输入处理未成功",
                                  case_no, adapter.key)
+                    record_failure("输入处理未成功")
                     return False
+            trace = _basic_run_trace(
+                case_no=case_no,
+                software_type=result.software_type or adapter.key,
+                software_version=result.software_version
+                or _software_version(adapter),
+                status="passed",
+                mode=result.mode,
+                started_at=result.started_at or started_at,
+                started_clock=started_clock,
+                output_path=result.output_path,
+                input_path=result.input_path,
+                executable_path=result.executable_path,
+                executable_source=result.executable_source,
+                command=result.command,
+                returncode=result.returncode,
+                analysis=result.analysis,
+                run_path=run_path,
+                screen_path=result.screen_path,
+                output_files=result.output_files,
+            )
+            trace["duration_seconds"] = round(
+                float(result.duration_seconds), 6
+            )
+            trace["finished_at"] = result.finished_at
+            if result.environment:
+                trace["environment"] = result.environment
+                trace["host"] = result.environment.get("host", trace["host"])
+            try:
+                write_run_trace(run_path, trace)
+            except Exception as trace_error:
+                logger.exception(
+                    "[%s] cannot write run trace: %s", case_no, trace_error
+                )
+                return False
             logger.info("[%s] run_software(%s) -> %s",
                         case_no, adapter.key, result.output_path)
             return True
         except AdapterNotImplementedError as exc:
             logger.error("[%s] run_software(%s) 未实现: %s",
                          case_no, software_type, exc)
+            record_failure(exc)
             return False
         except ContextPathError as exc:
             logger.error("[%s] run_software path rejected: %s", case_no, exc)
+            record_failure(exc)
             return False
         except SoftwareAdapterError as exc:
             logger.error("[%s] run_software(%s) failed: %s",
                          case_no, software_type, exc)
+            record_failure(exc)
             return False
         except Exception as exc:
             logger.exception("[%s] run_software(%s) failed: %s",
                              case_no, software_type, exc)
+            record_failure(exc)
             return False
 
     @staticmethod

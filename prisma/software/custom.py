@@ -10,8 +10,15 @@ import logging
 import re
 import shutil
 import subprocess
+import time
 from pathlib import Path
 
+from common.results import (
+    environment_summary,
+    file_record,
+    screen_excerpt,
+    utc_now,
+)
 from common.util_prisma import ROOT, read_config, resolve_path
 from software.base import (
     SoftwareAdapterError,
@@ -294,11 +301,61 @@ class GenericCommandAdapter:
                 return match.group(1)
         return None
 
+    def _result_evidence(
+        self,
+        *,
+        request: SoftwareRunRequest,
+        output_path: Path,
+        mode: str,
+        started_at: str,
+        started_clock: float,
+        returncode: int | None = None,
+        analysis: dict | None = None,
+        executable_source: Path | None = None,
+        executable_path: Path | None = None,
+        input_path: Path | None = None,
+        command: tuple[str, ...] = (),
+    ) -> SoftwareRunResult:
+        run_dir = self._safe_run_dir(request)
+        screen_path = run_dir / "screen.txt"
+        output_files = []
+        seen: set[str] = set()
+        for path, role in (
+            (output_path, "output"),
+            (screen_path, "screen"),
+        ):
+            record = file_record(path, base=run_dir, role=role)
+            if not record or record["absolute_path"] in seen:
+                continue
+            seen.add(record["absolute_path"])
+            output_files.append(record)
+        return SoftwareRunResult(
+            output_path=output_path,
+            returncode=returncode,
+            analysis=analysis,
+            software_type=self.key,
+            software_version=self.version,
+            mode=mode,
+            executable_source=executable_source,
+            executable_path=executable_path,
+            input_path=input_path,
+            command=command,
+            started_at=started_at,
+            finished_at=utc_now(),
+            duration_seconds=max(0.0, time.monotonic() - started_clock),
+            environment=environment_summary(),
+            output_files=tuple(output_files),
+            screen_path=screen_path if screen_path.is_file() else None,
+            screen_excerpt=screen_excerpt(screen_path),
+        )
+
     def execute(self, request: SoftwareRunRequest) -> SoftwareRunResult:
         logger = logging.getLogger("prisma")
         root = self._project_root(request)
         run_dir = self._safe_run_dir(request)
         run_dir.mkdir(parents=True, exist_ok=True)
+        started_at = utc_now()
+        started_clock = time.monotonic()
         output_path = resolve_output_path(
             run_dir,
             request.output_name,
@@ -333,8 +390,15 @@ class GenericCommandAdapter:
             logger.info(
                 "[%s] %s(simulate) -> %s", request.case_no, self.key, output_path
             )
-            return SoftwareRunResult(
-                output_path=output_path, analysis={"pairs": 0, "keys": []}
+            input_path = run_dir / input_name
+            return self._result_evidence(
+                request=request,
+                output_path=output_path,
+                mode="simulate",
+                started_at=started_at,
+                started_clock=started_clock,
+                analysis={"pairs": 0, "keys": []},
+                input_path=input_path if input_path.is_file() else None,
             )
 
         self.prepare(request)
@@ -383,8 +447,16 @@ class GenericCommandAdapter:
             "[%s] %s returncode=%s -> %s",
             request.case_no, self.key, process.returncode, output_path,
         )
-        return SoftwareRunResult(
+        return self._result_evidence(
+            request=request,
             output_path=output_path,
+            mode="real",
+            started_at=started_at,
+            started_clock=started_clock,
             returncode=process.returncode,
             analysis=analysis,
+            executable_source=executable,
+            executable_path=destination,
+            input_path=run_dir / input_name,
+            command=tuple(str(item) for item in command),
         )

@@ -82,8 +82,13 @@ def destination_executable(
     library: SoftwareLibrary | None = None,
     *,
     copy_runtime: bool = True,
+    exclude_names=(),
 ) -> Path:
-    """Copy the executable and, when requested, sibling runtime files."""
+    """Copy the executable and, when requested, sibling runtime files.
+
+    ``exclude_names`` prevents the run preparation step from overwriting an
+    input card that happens to be bundled beside the executable.
+    """
     root = Path(project_root).resolve() if project_root else ROOT
     run_dir = resolve_path(run_dir, root / "test_cases")
     if project_root is not None and not _inside(root, run_dir):
@@ -99,9 +104,20 @@ def destination_executable(
         bundled_root = library_root / "bin"
         if _inside(bundled_root, source):
             source_root = bundled_root
+    excluded = {
+        str(name or "").replace("\\", "/").casefold()
+        for name in exclude_names
+        if str(name or "").strip()
+    }
     if copy_runtime:
         for runtime_file in iter_runtime_bundle_files(source_root):
             relative = runtime_file.relative_to(source_root)
+            markers = {
+                runtime_file.name.casefold(),
+                relative.as_posix().casefold(),
+            }
+            if markers & excluded:
+                continue
             destination = run_dir / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             if destination.resolve() == runtime_file.resolve():

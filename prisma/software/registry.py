@@ -97,15 +97,20 @@ def normalize_software_key(
 def get_adapter(
     software_type: str, library: SoftwareLibrary | None = None
 ):
+    library = library or SoftwareLibrary()
     key = normalize_software_key(software_type, library)
     for adapter in (*_ADAPTERS, *_custom_adapters(library)):
         if adapter.key == key:
-            return adapter
+            return library.configured_adapter(adapter)
     raise SoftwareAdapterError(f"未知软件类型: {software_type}")
 
 
 def all_adapters(library: SoftwareLibrary | None = None):
-    return (*_ADAPTERS, *_custom_adapters(library))
+    library = library or SoftwareLibrary()
+    return tuple(
+        library.configured_adapter(adapter)
+        for adapter in (*_ADAPTERS, *_custom_adapters(library))
+    )
 
 
 def software_catalog(library: SoftwareLibrary | None = None) -> list[dict]:
@@ -131,6 +136,9 @@ def software_catalog(library: SoftwareLibrary | None = None) -> list[dict]:
                 "total_size": 0,
                 "imported_at": None,
                 "manifest_error": str(exc),
+                "required_runtime_files": [],
+                "missing_runtime_files": [],
+                "runtime_ready": False,
             }
         catalog.append({
             "key": adapter.key,

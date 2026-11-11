@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import os
 import re
@@ -272,6 +273,48 @@ def normalize_support_files(value) -> list[str]:
     return patterns
 
 
+def required_runtime_files(adapter) -> list[str]:
+    """Return the adapter's exact runtime filenames, relative to its bin root."""
+    value = getattr(adapter, "required_runtime_files", ())
+    if isinstance(value, str):
+        raw = _SUPPORT_FILE_SPLIT.split(value)
+    elif isinstance(value, (list, tuple)):
+        raw = list(value)
+    else:
+        raw = []
+    files: list[str] = []
+    seen: set[str] = set()
+    for item in raw:
+        name = str(item or "").strip().replace("\\", "/")
+        if not name or name.startswith("/") or ":" in name or ".." in name.split("/"):
+            continue
+        clean = "/".join(part for part in name.split("/") if part not in ("", "."))
+        if not clean or clean.casefold() in seen:
+            continue
+        seen.add(clean.casefold())
+        files.append(clean)
+    return files
+
+
+def missing_runtime_files(root: Path, required_files) -> list[str]:
+    """Return required runtime files that do not exist below ``root``."""
+    root = Path(root)
+    missing: list[str] = []
+    for item in required_files:
+        name = str(item or "").strip().replace("\\", "/")
+        if not name:
+            continue
+        candidate = (root / name).resolve()
+        try:
+            candidate.relative_to(root.resolve())
+        except ValueError:
+            missing.append(name)
+            continue
+        if not candidate.is_file() or candidate.stat().st_size <= 0:
+            missing.append(name)
+    return missing
+
+
 def clean_custom_definition(payload) -> dict:
     """校验并整理用户提交的新增软件定义。"""
     if not isinstance(payload, dict):
@@ -283,10 +326,45 @@ def clean_custom_definition(payload) -> dict:
         )
     if key in BUILTIN_SOFTWARE_KEYS:
         raise SoftwareLibraryError(f"软件标识 {key} 已被内置软件占用，请更换")
+    return {
+        "software_key": key,
+        **_clean_definition_fields(payload, {}),
+    }
+
+
+def _adapter_definition_defaults(adapter) -> dict:
+    input_filenames = adapter_input_names(adapter) or ["input.txt"]
+    arguments = getattr(adapter, "arguments", None)
+    if not isinstance(arguments, (list, tuple)) or not arguments:
+        arguments = ("{input}",)
+    return {
+        "display_name": str(
+            getattr(adapter, "display_name", "") or adapter.key
+        ),
+        "description": str(getattr(adapter, "description", "") or ""),
+        "version": str(getattr(adapter, "version", "") or ""),
+        "arguments": tuple(str(item) for item in arguments),
+        "input_filenames": list(input_filenames),
+        "input_filename": input_filenames[0],
+        "support_files": list(getattr(adapter, "support_files", ()) or ()),
+        "output_filename": str(
+            getattr(adapter, "output_filename", "") or "output.txt"
+        ),
+        "timeout_sec": int(getattr(adapter, "timeout_sec", 0) or 1800),
+    }
+
+
+def _clean_definition_fields(payload: dict, defaults: dict) -> dict:
+    """校验所有可编辑字段，并保留未提交字段的当前值。"""
     display_name = _text_field(
-        payload.get("display_name"), "显示名称", 60, required=True
+        payload.get("display_name", defaults.get("display_name")),
+        "显示名称",
+        60,
+        required=True,
     )
     timeout_raw = payload.get("timeout_sec")
+    if timeout_raw is None:
+        timeout_raw = defaults.get("timeout_sec")
     timeout_text = "" if timeout_raw is None else str(timeout_raw).strip()
     try:
         timeout_sec = int(timeout_text) if timeout_text else 1800
@@ -294,25 +372,46 @@ def clean_custom_definition(payload) -> dict:
         raise SoftwareLibraryError("超时时间必须是整数秒") from exc
     if timeout_sec <= 0 or timeout_sec > 86400:
         raise SoftwareLibraryError("超时时间必须在 1 到 86400 秒之间")
-    input_filenames = _input_name_list(
-        payload.get("input_filenames", payload.get("input_filename")),
-        "input.txt",
+    default_inputs = defaults.get("input_filenames")
+    default_input = (
+        str(default_inputs[0])
+        if isinstance(default_inputs, (list, tuple)) and default_inputs
+        else str(defaults.get("input_filename") or "input.txt")
     )
-    support_files = normalize_support_files(payload.get("support_files"))
+    input_filenames = _input_name_list(
+        payload.get(
+            "input_filenames",
+            payload.get(
+                "input_filename",
+                defaults.get("input_filenames", defaults.get("input_filename")),
+            ),
+        ),
+        default_input,
+    )
+    support_files = normalize_support_files(
+        payload.get("support_files", defaults.get("support_files"))
+    )
     output_filename = _file_name_field(
-        payload.get("output_filename"), "输出文件名", "output.txt"
+        payload.get("output_filename", defaults.get("output_filename")),
+        "输出文件名",
+        str(defaults.get("output_filename") or "output.txt"),
     )
     for name in input_filenames:
         if name.casefold() == output_filename.casefold():
             raise SoftwareLibraryError("输出文件名不能与输入卡同名")
     return {
-        "software_key": key,
         "display_name": display_name,
         "description": _text_field(
-            payload.get("description"), "软件说明", 200
+            payload.get("description", defaults.get("description")),
+            "软件说明",
+            200,
         ),
-        "version": _text_field(payload.get("version"), "版本", 80),
-        "arguments": _argument_tokens(payload.get("arguments")),
+        "version": _text_field(
+            payload.get("version", defaults.get("version")), "版本", 80
+        ),
+        "arguments": _argument_tokens(
+            payload.get("arguments", defaults.get("arguments"))
+        ),
         "input_filenames": input_filenames,
         "support_files": support_files,
         # 兼容旧清单：input_filename 始终是主输入卡（列表第一项）。
@@ -573,13 +672,22 @@ class SoftwareLibrary:
         executable = self.resolve_executable(key, expected_name, expected_name)
         templates = self.template_files(key) if entry_root.is_dir() else []
         file_count, total_size = self._file_count(entry_root)
+        required_runtime = required_runtime_files(adapter)
+        missing_runtime = (
+            missing_runtime_files(entry_root / "bin", required_runtime)
+            if executable
+            else list(required_runtime)
+        )
+        runtime_ready = executable is not None and not missing_runtime
         # 用户只登记了定义、尚未导入程序时，不应显示成“缺少程序”。
         declared_executable = str(manifest.get("executable") or "").strip()
         installed = bool(declared_executable or executable or file_count)
         if getattr(adapter, "status", "") != "available":
             state = "reserved"
-        elif executable:
+        elif executable and runtime_ready:
             state = "ready"
+        elif executable:
+            state = "missing_runtime"
         elif installed or manifest_error:
             state = "missing_program"
         else:
@@ -587,11 +695,14 @@ class SoftwareLibrary:
         return {
             "library_directory": str(entry_root),
             "installed": installed,
-            "program_ready": executable is not None,
+            "program_ready": runtime_ready,
             "state": state,
             "version": str(manifest.get("version") or ""),
             "executable_path": str(executable) if executable else "",
             "executable_name": executable.name if executable else expected_name,
+            "required_runtime_files": required_runtime,
+            "missing_runtime_files": missing_runtime,
+            "runtime_ready": runtime_ready,
             "template_count": len(templates),
             "file_count": file_count,
             "total_size": total_size,
@@ -679,6 +790,92 @@ class SoftwareLibrary:
         """读取指定软件清单（不存在时返回空字典）。"""
         return dict(self._read_manifest(self._safe_key(software_key)))
 
+    def configured_adapter(self, adapter):
+        """复制适配器并应用 ``software.json`` 中的可编辑配置。"""
+        configured = copy.copy(adapter)
+        configured.library = self
+        manifest_path = self.manifest_path(adapter.key)
+        if not manifest_path.is_file():
+            return configured
+
+        manifest = self._read_manifest(adapter.key)
+        existing_inputs = manifest.get("input_filenames")
+        if not isinstance(existing_inputs, (list, tuple)) or not existing_inputs:
+            input_filename = str(manifest.get("input_filename") or "").strip()
+            existing_inputs = [input_filename] if input_filename else None
+        defaults = _adapter_definition_defaults(configured)
+        payload = {
+            "display_name": manifest.get("display_name") or defaults["display_name"],
+            "description": manifest.get("description") or "",
+            "version": manifest.get("version", ""),
+            "arguments": manifest.get("arguments") or defaults["arguments"],
+            "input_filenames": existing_inputs or defaults["input_filenames"],
+            "support_files": manifest.get("support_files") or defaults["support_files"],
+            "output_filename": manifest.get("output_filename") or defaults["output_filename"],
+            "timeout_sec": manifest.get("timeout_sec"),
+        }
+        cleaned = _clean_definition_fields(payload, defaults)
+        for name in (
+            "display_name",
+            "description",
+            "version",
+            "arguments",
+            "input_filenames",
+            "input_filename",
+            "support_files",
+            "output_filename",
+            "timeout_sec",
+        ):
+            value = cleaned[name]
+            setattr(
+                configured,
+                name,
+                tuple(value) if name in {"arguments", "input_filenames", "support_files"} else value,
+            )
+        return configured
+
+    def update_definition(self, adapter, payload) -> dict:
+        """修改任意已注册软件的配置，同时保留标识、程序和模板元数据。"""
+        if not isinstance(payload, dict):
+            raise SoftwareLibraryError("软件定义格式无效")
+        key = self._safe_key(adapter.key)
+        submitted_key = str(
+            payload.get("software_key") or payload.get("key") or key
+        ).strip().lower()
+        if submitted_key != key:
+            raise SoftwareLibraryError("软件标识创建后不能修改")
+
+        entry_root = self.entry_root(key)
+        manifest_path = entry_root / MANIFEST_NAME
+        existing = self._read_manifest(key) if manifest_path.is_file() else {}
+        current = self.configured_adapter(adapter)
+        cleaned = _clean_definition_fields(
+            payload, _adapter_definition_defaults(current)
+        )
+        now = _utc_now()
+        manifest = {
+            **existing,
+            "schema_version": MANIFEST_VERSION,
+            "software_key": key,
+            **cleaned,
+            "created_at": str(existing.get("created_at") or now),
+            "updated_at": now,
+        }
+
+        self.ensure_root()
+        entry_root.mkdir(parents=True, exist_ok=True)
+        temporary = entry_root / f"{MANIFEST_NAME}.{uuid4().hex}.tmp"
+        try:
+            temporary.write_text(
+                json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            temporary.replace(manifest_path)
+        finally:
+            if temporary.exists():
+                temporary.unlink(missing_ok=True)
+        return manifest
+
     def create_custom_definition(self, payload) -> dict:
         """登记或更新一个用户新增的命令行软件定义。"""
         definition = clean_custom_definition(payload)
@@ -709,7 +906,12 @@ class SoftwareLibrary:
             "input_filename": definition["input_filename"],
             "output_filename": definition["output_filename"],
             "timeout_sec": definition["timeout_sec"],
-            "version": definition["version"] or str(existing.get("version") or ""),
+            # 新增时未提交版本则保留导入版本；编辑时显式提交空值可清空版本。
+            "version": (
+                definition["version"]
+                if "version" in payload
+                else str(existing.get("version") or "")
+            ),
             "executable": str(existing.get("executable") or ""),
             "templates": existing.get("templates") or [],
             "created_at": str(existing.get("created_at") or now),
@@ -729,6 +931,23 @@ class SoftwareLibrary:
             if temporary.exists():
                 temporary.unlink(missing_ok=True)
         return manifest
+
+    def update_custom_definition(self, software_key: str, payload) -> dict:
+        """修改已有用户软件的配置，同时保留标识、程序和模板。"""
+        if not isinstance(payload, dict):
+            raise SoftwareLibraryError("软件定义格式无效")
+        key = self._safe_key(software_key)
+        entry_root = self.entry_root(key)
+        manifest_path = entry_root / MANIFEST_NAME
+        if not manifest_path.is_file():
+            raise SoftwareLibraryError(f"软件定义不存在: {key}")
+        existing = self._read_manifest(key)
+        if str(existing.get("adapter") or "") != CUSTOM_ADAPTER_NAME:
+            raise SoftwareLibraryError("只能修改用户新增的软件配置")
+        from software.custom import GenericCommandAdapter
+
+        adapter = GenericCommandAdapter.from_manifest(existing, library=self)
+        return self.update_definition(adapter, payload)
 
     def remove_custom_definition(self, software_key: str) -> str:
         """删除一个用户新增的软件条目（含已导入的程序）。"""
@@ -818,7 +1037,9 @@ class SoftwareLibrary:
                 "schema_version": MANIFEST_VERSION,
                 "software_key": key,
                 "display_name": str(
-                    getattr(adapter, "display_name", key) or key
+                    old_manifest.get("display_name")
+                    or getattr(adapter, "display_name", key)
+                    or key
                 ),
                 "version": clean_version
                 or str(old_manifest.get("version") or ""),
@@ -828,6 +1049,7 @@ class SoftwareLibrary:
                     for path in sorted((staging / "templates").rglob("*"))
                     if path.is_file()
                 ],
+                "required_runtime_files": required_runtime_files(adapter),
                 "imported_at": _utc_now(),
                 "source_name": source_root.name,
             }

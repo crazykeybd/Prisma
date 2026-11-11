@@ -134,6 +134,60 @@ class CustomDefinitionTests(unittest.TestCase):
         self.assertEqual(item["state"], "ready")
         self.assertEqual(item["version"], "1.0")
 
+    def test_update_definition_changes_config_and_keeps_program_and_templates(self):
+        self.library.create_custom_definition(DEFINITION)
+        template = (
+            self.library.entry_root("my_solver") / "templates" / "case.tpl"
+        )
+        template.parent.mkdir(parents=True)
+        template.write_text("template\n", encoding="utf-8")
+        source = write_pe(self.base / "solver" / "solver.exe")
+        self.library.import_source(
+            get_adapter("my_solver", self.library), source, "1.0"
+        )
+
+        updated = self.library.update_custom_definition(
+            "my_solver",
+            {
+                "software_key": "my_solver",
+                "display_name": "MY-SOLVER EDIT",
+                "description": "修改后的软件说明",
+                "version": "2.0",
+                "input_filenames": ["main.inp", "auxiliary.dat"],
+                "input_filename": "main.inp",
+                "support_files": ["runtime/*.dll", "data/*.dat"],
+                "output_filename": "main.out",
+                "arguments": "-i {input1} -a {input2} -o {output}",
+                "timeout_sec": 240,
+            },
+        )
+
+        self.assertEqual(updated["software_key"], "my_solver")
+        self.assertEqual(updated["display_name"], "MY-SOLVER EDIT")
+        self.assertEqual(updated["executable"], "bin/solver.exe")
+        self.assertEqual(updated["templates"], ["templates/case.tpl"])
+        self.assertTrue(
+            (self.library.entry_root("my_solver") / "bin" / "solver.exe").is_file()
+        )
+        self.assertTrue(template.is_file())
+        item = next(
+            entry for entry in software_catalog(self.library)
+            if entry["key"] == "my_solver"
+        )
+        self.assertEqual(item["version"], "2.0")
+        self.assertEqual(item["arguments"], ["-i", "{input1}", "-a", "{input2}", "-o", "{output}"])
+        self.assertEqual(item["input_filenames"], ["main.inp", "auxiliary.dat"])
+        self.assertEqual(item["timeout_sec"], 240)
+
+    def test_update_definition_rejects_software_key_change(self):
+        self.library.create_custom_definition(DEFINITION)
+
+        with self.assertRaisesRegex(SoftwareLibraryError, "不能修改"):
+            self.library.update_custom_definition(
+                "my_solver",
+                {**DEFINITION, "software_key": "renamed_solver"},
+            )
+
     def test_custom_software_cannot_shadow_builtin_key(self):
         with self.assertRaisesRegex(SoftwareLibraryError, "内置软件"):
             self.library.create_custom_definition(
@@ -375,6 +429,99 @@ class SoftwareApiTests(unittest.TestCase):
         self.assertEqual(status, 200, data)
         keys = [item["key"] for item in data["software"]]
         self.assertNotIn("my_solver", keys)
+
+    def test_update_software_and_project_software_via_api(self):
+        status, data = self.request("POST", "/api/software/create", DEFINITION)
+        self.assertEqual(status, 200, data)
+
+        status, data = self.request(
+            "POST",
+            "/api/software/update",
+            {
+                **DEFINITION,
+                "display_name": "MY-SOLVER EDIT",
+                "version": "2.0",
+                "input_filenames": ["main.inp", "auxiliary.dat"],
+                "input_filename": "main.inp",
+                "output_filename": "main.out",
+                "arguments": "-i {input1} -a {input2} -o {output}",
+                "timeout_sec": 240,
+            },
+        )
+        self.assertEqual(status, 200, data)
+        self.assertEqual(data["definition"]["display_name"], "MY-SOLVER EDIT")
+        self.assertEqual(data["software"]["version"], "2.0")
+        self.assertEqual(
+            data["software"]["input_filenames"], ["main.inp", "auxiliary.dat"]
+        )
+
+        status, data = self.request(
+            "POST",
+            "/api/software/update",
+            {**DEFINITION, "software_key": "renamed_solver"},
+        )
+        self.assertEqual(status, 400)
+        self.assertIn("未知软件类型", data["error"])
+
+        status, data = self.request(
+            "POST",
+            "/api/software/update",
+            {
+                **DEFINITION,
+                "software_key": "relap5",
+                "display_name": "RELAP5 EDIT",
+                "version": "4.0",
+                "input_filenames": ["main.inp", "auxiliary.dat"],
+                "input_filename": "main.inp",
+                "output_filename": "main.out",
+                "arguments": "-i {input1} -a {input2} -o {output}",
+                "timeout_sec": 3600,
+            },
+        )
+        self.assertEqual(status, 200, data)
+        self.assertEqual(data["definition"]["software_key"], "relap5")
+        self.assertEqual(data["definition"]["display_name"], "RELAP5 EDIT")
+        self.assertEqual(data["software"]["display_name"], "RELAP5 EDIT")
+        self.assertEqual(
+            data["software"]["input_filenames"],
+            ["main.inp", "auxiliary.dat"],
+        )
+        self.assertEqual(data["software"]["timeout_sec"], 3600)
+
+        with patch.dict(self.server.STATE, {"running": True}):
+            status, data = self.request(
+                "POST", "/api/software/update", DEFINITION
+            )
+        self.assertEqual(status, 400)
+        self.assertIn("运行期间", data["error"])
+
+        status, data = self.request(
+            "POST",
+            "/api/projects/create",
+            {"name": "切换软件项目", "software_key": "relap5"},
+        )
+        self.assertEqual(status, 200, data)
+        project_id = data["current"]["id"]
+        original_root = Path(data["current"]["absolute_path"])
+
+        status, data = self.request(
+            "POST",
+            "/api/projects/save",
+            {
+                "project_id": project_id,
+                "name": "切换软件项目-已修改",
+                "description": "项目配置可编辑",
+                "software_key": "my_solver",
+            },
+        )
+        self.assertEqual(status, 200, data)
+        self.assertEqual(data["current"]["software_key"], "my_solver")
+        self.assertEqual(data["current"]["name"], "切换软件项目-已修改")
+        self.assertEqual(Path(data["current"]["absolute_path"]), original_root)
+        config = yaml.safe_load(
+            (original_root / "config.yaml").read_text(encoding="utf-8")
+        )
+        self.assertEqual(config["softwareType"], "my_solver")
 
 
 if __name__ == "__main__":

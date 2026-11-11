@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -93,7 +93,7 @@ class SoftwareRunRequest:
     executable: str
     software_type: str
     input_name: str = "input.txt"
-    output_name: str = "output.txt"
+    output_name: str = ""
     timeout: int | None = None
     params: dict[str, Any] | None = None
     project_root: Path | None = None
@@ -102,8 +102,26 @@ class SoftwareRunRequest:
 
 @dataclass(frozen=True)
 class SoftwareRunResult:
-    """运行成功时返回的标准结果。"""
+    """运行成功时返回的标准结果。
+
+    除了业务输出路径外，结果还携带一次运行的可追溯信息，供关键词层
+    写入 ``.prisma/run.json`` 和项目级报告使用。
+    """
 
     output_path: Path
     returncode: int | None = None
     analysis: dict[str, Any] | None = None
+    software_type: str = ""
+    software_version: str = ""
+    mode: str = ""
+    executable_source: Path | None = None
+    executable_path: Path | None = None
+    input_path: Path | None = None
+    command: tuple[str, ...] = ()
+    started_at: str = ""
+    finished_at: str = ""
+    duration_seconds: float = 0.0
+    environment: dict[str, Any] = field(default_factory=dict)
+    output_files: tuple[dict[str, Any], ...] = ()
+    screen_path: Path | None = None
+    screen_excerpt: str = ""

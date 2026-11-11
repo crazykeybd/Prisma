@@ -54,13 +54,13 @@ class ProjectRelativePathTests(unittest.TestCase):
             store = ProjectStore(Path(temp_dir) / "projects")
             project = store.create("paths", "relap5")
             result = project_relative_path(
-                project.root / "inputs" / "CheckSGInput.txt",
+                project.root / "inputs" / "mini.i",
                 require_input=True,
                 project=project,
             )
 
-        self.assertEqual(result["path"], "inputs/CheckSGInput.txt")
-        self.assertEqual(result["input_path"], "CheckSGInput.txt")
+        self.assertEqual(result["path"], "inputs/mini.i")
+        self.assertEqual(result["input_path"], "mini.i")
 
     def test_rejects_input_card_outside_inputs_directory(self):
         with tempfile.TemporaryDirectory(prefix="prisma-path-") as temp_dir:

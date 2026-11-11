@@ -170,6 +170,30 @@ fn open_software_library(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn open_report(path: String) -> Result<(), String> {
+    let report = PathBuf::from(path);
+    if !report.is_absolute() {
+        return Err("测试报告路径必须是绝对路径".to_string());
+    }
+    if !report.is_file() {
+        return Err("测试报告文件不存在".to_string());
+    }
+    let is_html = report
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| extension.eq_ignore_ascii_case("html"))
+        .unwrap_or(false);
+    if !is_html {
+        return Err("只能打开 HTML 测试报告".to_string());
+    }
+    Command::new("explorer.exe")
+        .arg(&report)
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| format!("无法打开测试报告: {error}"))
+}
+
+#[tauri::command]
 fn get_port(state: tauri::State<Port>) -> u16 {
     *state.0.lock().unwrap()
 }
@@ -260,6 +284,7 @@ fn main() {
             pick_file,
             pick_project_manifest,
             open_software_library,
+            open_report,
             get_port,
             api_proxy
         ])
