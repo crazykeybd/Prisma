@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use tauri::Manager;
 
 struct Backend(Mutex<Option<Child>>);
@@ -128,6 +129,48 @@ fn pick_file(kind: String) -> Option<String> {
         _ => dlg.add_filter("Excel", &["xlsx"]),
     };
     dlg.pick_file().map(|p| p.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+fn save_export(
+    kind: String,
+    default_name: String,
+    content_base64: String,
+) -> Result<Option<String>, String> {
+    let (title, filter_name, extension) = match kind.as_str() {
+        "png" => ("导出 PNG 图像", "PNG 图像", "png"),
+        "svg" => ("导出 SVG 矢量图", "SVG 矢量图", "svg"),
+        "csv" => ("导出 CSV 数据", "CSV 数据", "csv"),
+        "tsv" => ("导出 TSV 数据", "TSV 数据", "tsv"),
+        "project" => ("保存 Plot 项目", "Plot 项目", "json"),
+        _ => return Err("不支持的导出类型".to_string()),
+    };
+    let fallback_path = PathBuf::from(&default_name);
+    let safe_name = fallback_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.is_empty())
+        .unwrap_or(default_name.as_str());
+    let extensions = [extension];
+    let Some(mut path) = rfd::FileDialog::new()
+        .set_title(title)
+        .set_file_name(safe_name)
+        .add_filter(filter_name, &extensions)
+        .add_filter("All Files", &["*"])
+        .save_file()
+    else {
+        return Ok(None);
+    };
+
+    if path.extension().is_none() {
+        path.set_extension(extension);
+    }
+    let bytes = STANDARD
+        .decode(content_base64.as_bytes())
+        .map_err(|error| format!("导出内容编码无效: {error}"))?;
+    std::fs::write(&path, bytes)
+        .map_err(|error| format!("写入导出文件失败: {error}"))?;
+    Ok(Some(path.to_string_lossy().to_string()))
 }
 
 #[tauri::command]
@@ -282,6 +325,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             pick_file,
+            save_export,
             pick_project_manifest,
             open_software_library,
             open_report,

@@ -284,13 +284,107 @@ export function downloadText(
   filename: string,
   type = 'text/plain;charset=utf-8',
 ) {
-  const blob = new Blob([content], { type })
+  downloadBytes(new TextEncoder().encode(content), filename, type)
+}
+
+function downloadBytes(bytes: Uint8Array, filename: string, type: string) {
+  const copy = new Uint8Array(bytes.byteLength)
+  copy.set(bytes)
+  const blob = new Blob([copy.buffer], { type })
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
   anchor.href = url
   anchor.download = filename
   anchor.click()
   URL.revokeObjectURL(url)
+}
+
+export type ExportKind = 'png' | 'svg' | 'csv' | 'tsv' | 'project'
+
+export type SaveExportResult = 'saved' | 'canceled' | 'browser'
+
+interface SaveExportOptions {
+  kind: ExportKind
+  defaultName: string
+  content: string
+  encoding?: 'utf8' | 'data-url'
+  mimeType?: string
+}
+
+function getTauriInvoke() {
+  const windows: Window[] = [window]
+  try {
+    if (window.parent !== window) windows.push(window.parent as Window)
+  } catch {
+    // Cross-origin parents do not expose the Tauri bridge.
+  }
+
+  for (const candidate of windows) {
+    const core = candidate.__TAURI__?.core
+    if (core) {
+      return <T>(command: string, args?: Record<string, unknown>) =>
+        core.invoke<T>(command, args)
+    }
+  }
+  return null
+}
+
+function bytesFromBase64(value: string) {
+  const binary = atob(value)
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index)
+  }
+  return bytes
+}
+
+function bytesToBase64(bytes: Uint8Array) {
+  const chunks: string[] = []
+  const chunkSize = 0x8000
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    chunks.push(
+      String.fromCharCode(...bytes.subarray(offset, offset + chunkSize)),
+    )
+  }
+  return btoa(chunks.join(''))
+}
+
+function bytesFromDataUrl(value: string) {
+  const separator = value.indexOf(',')
+  if (!value.startsWith('data:') || separator < 0) {
+    throw new Error('导出图像数据无效。')
+  }
+  const metadata = value.slice(5, separator)
+  const payload = value.slice(separator + 1)
+  return metadata.includes(';base64')
+    ? bytesFromBase64(payload)
+    : new TextEncoder().encode(decodeURIComponent(payload))
+}
+
+export async function saveExportFile({
+  kind,
+  defaultName,
+  content,
+  encoding = 'utf8',
+  mimeType = 'application/octet-stream',
+}: SaveExportOptions): Promise<SaveExportResult> {
+  const bytes =
+    encoding === 'data-url'
+      ? bytesFromDataUrl(content)
+      : new TextEncoder().encode(content)
+  const invoke = getTauriInvoke()
+
+  if (!invoke) {
+    downloadBytes(bytes, defaultName, mimeType)
+    return 'browser'
+  }
+
+  const savedPath = await invoke<string | null>('save_export', {
+    kind,
+    defaultName,
+    contentBase64: bytesToBase64(bytes),
+  })
+  return savedPath ? 'saved' : 'canceled'
 }
 
 export function datasetToCsv(dataset: DataSet, delimiter = ',') {

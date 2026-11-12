@@ -22,6 +22,7 @@ import {
   LoaderCircle,
   PanelLeft,
   Plus,
+  RefreshCw,
   RotateCcw,
   Save,
   Settings2,
@@ -36,16 +37,18 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { PlotCanvas } from './components/PlotCanvas'
+import { PlotDataDialog } from './components/PlotDataDialog'
+import type { PlotDataSelection } from './components/PlotDataDialog'
 import { RstpltImportDialog } from './components/RstpltImportDialog'
 import {
   SERIES_COLORS,
   createSampleDataset,
   datasetToCsv,
-  downloadText,
   getColumnLabel,
   getNumericPoints,
   getSeriesColor,
   parseDataFile,
+  saveExportFile,
 } from './lib/data'
 import {
   isRstpltFilename,
@@ -118,6 +121,15 @@ interface Notice {
 interface RstpltImportState {
   file: File
   catalog: RstpltCatalog
+  mode: 'import' | 'reselect'
+  datasetId: string | null
+  initialSelectedIds: string[]
+}
+
+interface RstpltSourceState {
+  file: File
+  catalog: RstpltCatalog
+  selectedVariableIds: string[]
 }
 
 interface ImportTask {
@@ -197,6 +209,16 @@ function mergeImportedDatasets(
     : [...current.datasets, ...imported]
 }
 
+function normalizeRstpltSelection(
+  catalog: RstpltCatalog,
+  variableIds: string[],
+) {
+  const selected = new Set(variableIds)
+  return catalog.variables
+    .filter((variable) => !variable.isTime && selected.has(variable.id))
+    .map((variable) => variable.id)
+}
+
 function App() {
   const [project, setProject] = useState<ProjectState>(loadInitialProject)
   const [notice, setNotice] = useState<Notice | null>(null)
@@ -207,6 +229,7 @@ function App() {
   const [mobilePanel, setMobilePanel] = useState<'data' | 'settings' | null>(
     null,
   )
+  const [isPlotDataDialogOpen, setIsPlotDataDialogOpen] = useState(false)
   const [isExportOpen, setIsExportOpen] = useState(false)
   const [rstpltImport, setRstpltImport] =
     useState<RstpltImportState | null>(null)
@@ -217,6 +240,7 @@ function App() {
   const noticeTimerRef = useRef<number | null>(null)
   const rstpltQueueRef = useRef<File[]>([])
   const rstpltOpeningRef = useRef(false)
+  const rstpltSourcesRef = useRef(new Map<string, RstpltSourceState>())
 
   const activeDataset =
     project.datasets.find((dataset) => dataset.id === project.activeDatasetId) ??
@@ -238,8 +262,9 @@ function App() {
       count + (dataset.visible ? dataset.yColumns.length : 0),
     project.derivedSeries.filter((series) => series.visible).length,
   )
-  const totalRows = project.datasets.reduce(
-    (count, dataset) => count + dataset.rows.length,
+  const plottedRows = project.datasets.reduce(
+    (count, dataset) =>
+      count + (dataset.visible ? dataset.rows.length : 0),
     0,
   )
 
@@ -371,7 +396,13 @@ function App() {
       if (!catalog.variables.some((variable) => !variable.isTime)) {
         throw new Error('RSTPLT 文件中没有 time 之外的可绘制变量。')
       }
-      setRstpltImport({ file, catalog })
+      setRstpltImport({
+        file,
+        catalog,
+        mode: 'import',
+        datasetId: null,
+        initialSelectedIds: [],
+      })
     } catch (error) {
       notify(
         error instanceof Error ? error.message : 'RSTPLT 文件扫描失败。',
@@ -395,6 +426,10 @@ function App() {
     const pending = rstpltImport
     if (!pending) return
 
+    const selectedVariableIds = normalizeRstpltSelection(
+      pending.catalog,
+      variableIds,
+    )
     setImportTask({
       fileName: pending.file.name,
       phase: 'load',
@@ -404,7 +439,7 @@ function App() {
       const dataset = await loadRstpltDataset(
         pending.file,
         pending.catalog,
-        variableIds,
+        selectedVariableIds,
         (done, total) => {
           setImportTask({
             fileName: pending.file.name,
@@ -413,26 +448,90 @@ function App() {
           })
         },
       )
-      setProject((current) => ({
-        ...current,
-        datasets: mergeImportedDatasets(current, [dataset]),
-        activeDatasetId: dataset.id,
-        chart: {
-          ...current.chart,
-          title: dataset.name,
-          xLabel: getColumnLabel(dataset, dataset.xColumn),
-          yLabel:
-            dataset.yColumns.length === 1
-              ? getColumnLabel(dataset, dataset.yColumns[0])
-              : 'Value',
-        },
-      }))
-      notify(
-        `已从 RSTPLT 读取 ${dataset.rows.toLocaleString(
-          'zh-CN',
-        )} 个时间点、${dataset.yColumns.length} 条曲线。`,
-        'success',
-      )
+
+      if (pending.mode === 'reselect' && pending.datasetId) {
+        const reselectDatasetId = pending.datasetId
+        const source = {
+          file: pending.file,
+          catalog: pending.catalog,
+          selectedVariableIds,
+        }
+        rstpltSourcesRef.current.set(reselectDatasetId, source)
+        setProject((current) => {
+          const previous = current.datasets.find(
+            (item) => item.id === reselectDatasetId,
+          )
+          if (!previous) return current
+          const updatedDataset: DataSet = {
+            ...dataset,
+            id: reselectDatasetId,
+            name: previous.name,
+            importedAt: previous.importedAt,
+            visible: previous.visible,
+          }
+          const availableColumns = new Set(
+            updatedDataset.columns.map((column) => column.key),
+          )
+          return {
+            ...current,
+            datasets: current.datasets.map((item) =>
+              item.id === reselectDatasetId ? updatedDataset : item,
+            ),
+            activeDatasetId: reselectDatasetId,
+            derivedSeries: current.derivedSeries.filter(
+              (series) =>
+                series.sourceDatasetId !== reselectDatasetId ||
+                availableColumns.has(series.sourceColumn),
+            ),
+            chart: {
+              ...current.chart,
+              xLabel: getColumnLabel(
+                updatedDataset,
+                updatedDataset.xColumn,
+              ),
+              yLabel:
+                updatedDataset.yColumns.length === 1
+                  ? getColumnLabel(
+                      updatedDataset,
+                      updatedDataset.yColumns[0],
+                    )
+                  : 'Value',
+            },
+          }
+        })
+        notify(
+          `已更新绘图：${dataset.rows.toLocaleString(
+            'zh-CN',
+          )} 个时间点、${dataset.yColumns.length} 条曲线。`,
+          'success',
+        )
+      } else {
+        rstpltSourcesRef.current.set(dataset.id, {
+          file: pending.file,
+          catalog: pending.catalog,
+          selectedVariableIds,
+        })
+        setProject((current) => ({
+          ...current,
+          datasets: mergeImportedDatasets(current, [dataset]),
+          activeDatasetId: dataset.id,
+          chart: {
+            ...current.chart,
+            title: dataset.name,
+            xLabel: getColumnLabel(dataset, dataset.xColumn),
+            yLabel:
+              dataset.yColumns.length === 1
+                ? getColumnLabel(dataset, dataset.yColumns[0])
+                : 'Value',
+          },
+        }))
+        notify(
+          `已从 RSTPLT 读取 ${dataset.rows.toLocaleString(
+            'zh-CN',
+          )} 个时间点、${dataset.yColumns.length} 条曲线。`,
+          'success',
+        )
+      }
       finishRstpltImport()
     } catch (error) {
       setImportTask(null)
@@ -460,6 +559,69 @@ function App() {
     setMobilePanel(null)
   }
 
+  function openPlotDataSelector() {
+    if (!activeDataset) return
+    const source = rstpltSourcesRef.current.get(activeDataset.id)
+    if (source) {
+      setRstpltImport({
+        file: source.file,
+        catalog: source.catalog,
+        mode: 'reselect',
+        datasetId: activeDataset.id,
+        initialSelectedIds: source.selectedVariableIds,
+      })
+      return
+    }
+    setIsPlotDataDialogOpen(true)
+  }
+
+  function applyPlotDataSelection(selection: PlotDataSelection) {
+    setProject((current) => {
+      const selectedDataset = current.datasets.find(
+        (dataset) => dataset.id === selection.datasetId,
+      )
+      if (!selectedDataset) return current
+
+      const numericColumns = selectedDataset.columns.filter(
+        (column) => column.type === 'number',
+      )
+      const xColumn = numericColumns.some(
+        (column) => column.key === selection.xColumn,
+      )
+        ? selection.xColumn
+        : (numericColumns[0]?.key ?? '')
+      const yColumns = selection.yColumns.filter(
+        (key) =>
+          key !== xColumn &&
+          numericColumns.some((column) => column.key === key),
+      )
+
+      return {
+        ...current,
+        activeDatasetId: selectedDataset.id,
+        datasets: current.datasets.map((dataset) =>
+          dataset.id === selectedDataset.id
+            ? {
+                ...dataset,
+                visible: true,
+                xColumn,
+                yColumns,
+              }
+            : dataset,
+        ),
+        chart: {
+          ...current.chart,
+          xLabel: getColumnLabel(selectedDataset, xColumn),
+          yLabel:
+            yColumns.length === 1
+              ? getColumnLabel(selectedDataset, yColumns[0])
+              : 'Value',
+        },
+      }
+    })
+    setIsPlotDataDialogOpen(false)
+  }
+
   function toggleDataset(datasetId: string) {
     updateDataset(datasetId, (dataset) => ({
       ...dataset,
@@ -484,6 +646,7 @@ function App() {
             : current.activeDatasetId,
       }
     })
+    rstpltSourcesRef.current.delete(datasetId)
     notify('数据源已移除。')
   }
 
@@ -533,48 +696,79 @@ function App() {
   async function exportImage(format: 'png' | 'svg') {
     if (!plotRef.current) return
     try {
-      await Plotly.downloadImage(plotRef.current, {
+      const dataUrl = await Plotly.toImage(plotRef.current, {
         format,
-        filename: safeFilename(project.chart.title),
         width: 1800,
         height: 1000,
         scale: format === 'png' ? 1.5 : 1,
       })
+      const result = await saveExportFile({
+        kind: format,
+        defaultName: `${safeFilename(project.chart.title)}.${format}`,
+        content: dataUrl,
+        encoding: 'data-url',
+        mimeType: format === 'png' ? 'image/png' : 'image/svg+xml',
+      })
       setIsExportOpen(false)
-      notify(`已导出 ${format.toUpperCase()} 图像。`, 'success')
+      if (result === 'canceled') {
+        notify('已取消导出。')
+        return
+      }
+      notify(`已保存 ${format.toUpperCase()} 图像。`, 'success')
     } catch {
+      setIsExportOpen(false)
       notify('图像导出失败。', 'error')
     }
   }
 
-  function exportCsv(delimiter: ',' | '\t') {
+  async function exportCsv(delimiter: ',' | '\t') {
     if (!activeDataset) {
       notify('请先选择数据源。', 'error')
       return
     }
     const extension = delimiter === ',' ? 'csv' : 'tsv'
-    downloadText(
-      datasetToCsv(activeDataset, delimiter),
-      `${safeFilename(activeDataset.name)}.${extension}`,
-      delimiter === ','
-        ? 'text/csv;charset=utf-8'
-        : 'text/tab-separated-values;charset=utf-8',
-    )
-    setIsExportOpen(false)
-    notify(`已导出 ${extension.toUpperCase()} 数据。`, 'success')
+    try {
+      const result = await saveExportFile({
+        kind: extension,
+        defaultName: `${safeFilename(activeDataset.name)}.${extension}`,
+        content: datasetToCsv(activeDataset, delimiter),
+        mimeType:
+          delimiter === ','
+            ? 'text/csv;charset=utf-8'
+            : 'text/tab-separated-values;charset=utf-8',
+      })
+      setIsExportOpen(false)
+      if (result === 'canceled') {
+        notify('已取消导出。')
+        return
+      }
+      notify(`已保存 ${extension.toUpperCase()} 数据。`, 'success')
+    } catch {
+      setIsExportOpen(false)
+      notify('数据导出失败。', 'error')
+    }
   }
 
-  function saveProjectFile() {
+  async function saveProjectFile() {
     const snapshot: ProjectState = {
       ...project,
       savedAt: new Date().toISOString(),
     }
-    downloadText(
-      JSON.stringify(snapshot, null, 2),
-      `${safeFilename(project.name)}.plotproj.json`,
-      'application/json;charset=utf-8',
-    )
-    notify('项目文件已保存。', 'success')
+    try {
+      const result = await saveExportFile({
+        kind: 'project',
+        defaultName: `${safeFilename(project.name)}.plotproj.json`,
+        content: JSON.stringify(snapshot, null, 2),
+        mimeType: 'application/json;charset=utf-8',
+      })
+      if (result === 'canceled') {
+        notify('已取消保存。')
+        return
+      }
+      notify('项目文件已保存。', 'success')
+    } catch {
+      notify('项目文件保存失败。', 'error')
+    }
   }
 
   useEffect(() => {
@@ -586,7 +780,7 @@ function App() {
       }
       if (event.key.toLowerCase() === 's') {
         event.preventDefault()
-        saveProjectFile()
+        void saveProjectFile()
       }
     }
     window.addEventListener('keydown', handleKeyboard)
@@ -609,6 +803,7 @@ function App() {
         ) {
           throw new Error('不是有效的 Plot Workbench 项目文件。')
         }
+        rstpltSourcesRef.current.clear()
         setProject(parsed)
         notify('项目已打开。', 'success')
       })
@@ -759,7 +954,7 @@ function App() {
           <button
             className="button"
             type="button"
-            onClick={saveProjectFile}
+            onClick={() => void saveProjectFile()}
             title="保存项目"
           >
             <Save size={15} />
@@ -787,11 +982,11 @@ function App() {
                   <Image size={15} />
                   SVG 矢量图
                 </button>
-                <button type="button" onClick={() => exportCsv(',')}>
+                <button type="button" onClick={() => void exportCsv(',')}>
                   <FileSpreadsheet size={15} />
                   CSV 数据
                 </button>
-                <button type="button" onClick={() => exportCsv('\t')}>
+                <button type="button" onClick={() => void exportCsv('\t')}>
                   <FileSpreadsheet size={15} />
                   TSV 数据
                 </button>
@@ -915,7 +1110,21 @@ function App() {
             <section className="column-config">
               <div className="section-title">
                 <span>曲线选择</span>
-                <small>{activeDataset.fileName}</small>
+                <div className="section-title-actions">
+                  <small title={activeDataset.fileName}>
+                    {activeDataset.fileName}
+                  </small>
+                  <button
+                    className="text-button replace-data-button"
+                    type="button"
+                    onClick={openPlotDataSelector}
+                    aria-haspopup="dialog"
+                    title="从已导入数据中重新选择"
+                  >
+                    <RefreshCw size={12} />
+                    重新选择
+                  </button>
+                </div>
               </div>
               <label className="field">
                 <span>横轴</span>
@@ -1022,7 +1231,7 @@ function App() {
               <p>
                 {visibleSeriesCount} 条曲线
                 <span aria-hidden="true">/</span>
-                {totalRows.toLocaleString('zh-CN')} 个数据行
+                {plottedRows.toLocaleString('zh-CN')} 个数据行
               </p>
             </div>
             <div className="plot-actions">
@@ -1517,14 +1726,25 @@ function App() {
 
       {rstpltImport && (
         <RstpltImportDialog
-          key={`${rstpltImport.file.name}-${rstpltImport.file.lastModified}-${rstpltImport.catalog.fileSize}`}
+          key={`${rstpltImport.mode}-${rstpltImport.datasetId ?? 'new'}-${rstpltImport.file.name}-${rstpltImport.file.lastModified}-${rstpltImport.catalog.fileSize}`}
           catalog={rstpltImport.catalog}
+          mode={rstpltImport.mode}
+          initialSelectedIds={rstpltImport.initialSelectedIds}
           busy={importTask?.phase === 'load'}
           progress={
             importTask?.phase === 'load' ? importTask.progress : 0
           }
           onCancel={finishRstpltImport}
           onConfirm={(variableIds) => void confirmRstpltImport(variableIds)}
+        />
+      )}
+
+      {isPlotDataDialogOpen && (
+        <PlotDataDialog
+          datasets={project.datasets}
+          initialDatasetId={activeDataset?.id ?? null}
+          onCancel={() => setIsPlotDataDialogOpen(false)}
+          onConfirm={applyPlotDataSelection}
         />
       )}
 

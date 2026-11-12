@@ -448,6 +448,504 @@
   white-space: nowrap;
 }
 
+.section-title-actions {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 7px;
+}
+
+.section-title-actions small {
+  min-width: 0;
+}
+
+.replace-data-button {
+  flex: 0 0 auto;
+  gap: 4px;
+  padding: 2px 0;
+  font-size: 9px;
+}
+
+.replace-data-button svg {
+  transition: transform 140ms ease;
+}
+
+.rstplt-dialog.plot-data-dialog {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(940px, calc(100vw - 32px));
+  max-height: min(760px, calc(100vh - 32px));
+  max-height: min(760px, calc(100dvh - 32px));
+}
+
+.plot-data-body {
+  display: grid;
+  grid-template-columns: 268px minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.plot-data-sources {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  background: var(--surface-sunken);
+  border-right: 1px solid var(--line);
+}
+
+.plot-data-pane-heading {
+  display: flex;
+  align-items: center;
+  min-height: 56px;
+  padding: 10px 13px;
+  border-bottom: 1px solid var(--line);
+}
+
+.plot-data-pane-heading > div {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.plot-data-pane-heading strong {
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 620;
+}
+
+.plot-data-pane-heading span {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 9px;
+}
+
+.plot-data-search {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  gap: 7px;
+  margin: 10px 11px 8px;
+  padding: 0 9px;
+  color: var(--muted);
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+
+.plot-data-search:focus-within {
+  border-color: rgba(12, 102, 90, 0.55);
+}
+
+.plot-data-search input {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  color: var(--ink);
+  font-size: 10px;
+  background: transparent;
+  border: 0;
+  outline: 0;
+}
+
+.plot-data-search input::placeholder {
+  color: var(--muted-light);
+}
+
+.plot-data-source-list {
+  min-height: 0;
+  overflow: auto;
+  padding: 0 7px 9px;
+}
+
+.plot-data-source {
+  display: grid;
+  grid-template-columns: 29px minmax(0, 1fr) 14px;
+  width: 100%;
+  min-height: 62px;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  color: var(--ink-soft);
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+}
+
+.plot-data-source:hover {
+  background: rgba(255, 255, 255, 0.52);
+  border-color: var(--line);
+}
+
+.plot-data-source.selected {
+  color: var(--ink);
+  background: var(--surface-strong);
+  border-color: var(--line-strong);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.plot-data-source > svg {
+  color: var(--accent);
+}
+
+.plot-data-source-icon {
+  display: grid;
+  width: 29px;
+  height: 29px;
+  color: var(--accent);
+  place-items: center;
+  background: var(--accent-soft);
+  border-radius: 5px;
+}
+
+.plot-data-source-copy {
+  display: grid;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.plot-data-source-copy strong,
+.plot-data-source-copy span,
+.plot-data-source-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plot-data-source-copy strong {
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.plot-data-source-copy span {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 8px;
+}
+
+.plot-data-source-copy small {
+  color: var(--muted-light);
+  font-size: 8px;
+}
+
+.plot-data-source-empty {
+  display: flex;
+  min-height: 130px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.plot-data-content {
+  display: grid;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  background: var(--surface-raised);
+}
+
+.plot-data-dataset-summary {
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.plot-data-dataset-summary > div {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.plot-data-dataset-summary > div strong,
+.plot-data-dataset-summary > div > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plot-data-dataset-summary > div strong {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 620;
+}
+
+.plot-data-dataset-summary > div > span:last-child {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 9px;
+}
+
+.plot-data-dataset-summary dl {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 1px;
+  margin: 0;
+}
+
+.plot-data-dataset-summary dl > div {
+  display: grid;
+  min-width: 74px;
+  gap: 1px;
+  padding: 6px 10px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+}
+
+.plot-data-dataset-summary dl > div:first-child {
+  border-radius: 5px 0 0 5px;
+}
+
+.plot-data-dataset-summary dl > div:last-child {
+  border-radius: 0 5px 5px 0;
+}
+
+.plot-data-dataset-summary dt,
+.plot-data-dataset-summary dd {
+  margin: 0;
+}
+
+.plot-data-dataset-summary dt {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.plot-data-dataset-summary dd {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.plot-data-axis {
+  display: grid;
+  grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+  align-items: end;
+  gap: 16px;
+  padding: 11px 16px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.plot-data-axis label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 540;
+}
+
+.plot-data-axis select {
+  width: 100%;
+  height: 32px;
+  padding: 0 9px;
+  color: var(--ink);
+  font-size: 11px;
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  box-shadow: inset 0 1px 1px rgba(23, 33, 30, 0.025);
+}
+
+.plot-data-axis p {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.plot-data-curves-heading {
+  display: flex;
+  min-height: 47px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px 7px;
+}
+
+.plot-data-curves-heading > div:first-child {
+  display: grid;
+  gap: 1px;
+}
+
+.plot-data-curves-heading strong {
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 620;
+}
+
+.plot-data-curves-heading span {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.plot-data-curve-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.plot-data-curve-actions .text-button {
+  color: var(--accent);
+  font-size: 9px;
+}
+
+.plot-data-curve-actions .text-button:disabled {
+  color: var(--muted-light);
+  cursor: not-allowed;
+}
+
+.plot-data-curve-search {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  gap: 7px;
+  margin: 0 14px 8px;
+  padding: 0 9px;
+  color: var(--muted);
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+
+.plot-data-curve-search:focus-within {
+  border-color: rgba(12, 102, 90, 0.55);
+}
+
+.plot-data-curve-search input {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  color: var(--ink);
+  font-size: 10px;
+  background: transparent;
+  border: 0;
+  outline: 0;
+}
+
+.plot-data-curve-search input::placeholder {
+  color: var(--muted-light);
+}
+
+.plot-data-curves {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  min-height: 0;
+  gap: 4px;
+  overflow: auto;
+  padding: 0 14px 14px;
+}
+
+.plot-data-curve {
+  display: grid;
+  grid-template-columns: 14px 8px minmax(0, 1fr);
+  min-height: 48px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  color: var(--ink-soft);
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.plot-data-curve:hover {
+  border-color: var(--line-strong);
+}
+
+.plot-data-curve.selected {
+  color: var(--ink);
+  background: rgba(219, 234, 229, 0.52);
+  border-color: #b8d3ca;
+}
+
+.plot-data-curve input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.plot-data-curve-copy {
+  display: grid;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.plot-data-curve-copy strong,
+.plot-data-curve-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plot-data-curve-copy strong {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.plot-data-curve-copy small {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.plot-data-curves-empty {
+  grid-column: 1 / -1;
+  display: flex;
+  min-height: 120px;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.plot-data-footer {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 14px;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+}
+
+.plot-data-selection {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.plot-data-selection strong {
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.plot-data-selection span {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 9px;
+}
+
+.plot-data-footer-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
 .field {
   display: grid;
   gap: 5px;
@@ -1956,6 +2454,134 @@ tbody tr:hover td {
     right: 10px;
     bottom: 10px;
     max-width: calc(100vw - 20px);
+  }
+}
+
+@media (max-width: 640px) {
+  .rstplt-dialog.plot-data-dialog {
+    width: 100vw;
+    max-height: 100vh;
+    max-height: 100dvh;
+    height: 100vh;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .plot-data-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 180px minmax(0, 1fr);
+  }
+
+  .plot-data-sources {
+    grid-template-rows: auto auto minmax(0, 1fr);
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .plot-data-pane-heading {
+    min-height: 42px;
+    padding: 7px 10px;
+  }
+
+  .plot-data-search {
+    height: 30px;
+    margin: 7px 9px 6px;
+  }
+
+  .plot-data-source-list {
+    display: flex;
+    gap: 5px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0 8px 8px;
+  }
+
+  .plot-data-source {
+    width: 248px;
+    min-width: 248px;
+    min-height: 58px;
+  }
+
+  .plot-data-source-empty {
+    width: 100%;
+    min-height: 62px;
+  }
+
+  .plot-data-dataset-summary {
+    min-height: 62px;
+    padding: 8px 10px;
+  }
+
+  .plot-data-dataset-summary dl > div {
+    min-width: 66px;
+    padding: 5px 7px;
+  }
+
+  .plot-data-axis {
+    grid-template-columns: minmax(150px, 1fr);
+    gap: 4px;
+    padding: 8px 10px;
+  }
+
+  .plot-data-axis p {
+    display: none;
+  }
+
+  .plot-data-curves-heading {
+    min-height: 42px;
+    padding: 6px 10px;
+  }
+
+  .plot-data-curves {
+    padding: 0 9px 9px;
+  }
+
+  .plot-data-curve-search {
+    margin: 0 9px 7px;
+  }
+
+  .plot-data-footer {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 10px 9px;
+  }
+
+  .plot-data-selection {
+    justify-content: space-between;
+  }
+
+  .plot-data-footer-actions {
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 480px) {
+  .plot-data-dialog .rstplt-dialog-header {
+    grid-template-columns: 35px minmax(0, 1fr) 30px;
+    gap: 8px;
+  }
+
+  .plot-data-dialog .rstplt-dialog-title p {
+    display: none;
+  }
+
+  .plot-data-body {
+    grid-template-rows: 168px minmax(0, 1fr);
+  }
+
+  .plot-data-source {
+    width: 226px;
+    min-width: 226px;
+  }
+
+  .plot-data-dataset-summary dl {
+    display: none;
+  }
+
+  .plot-data-curves {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

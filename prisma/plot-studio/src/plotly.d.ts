@@ -22,6 +22,10 @@ declare module 'plotly.js-dist-min' {
       root: HTMLElement,
       options: Record<string, unknown>,
     ) => Promise<string>
+    toImage: (
+      root: HTMLElement,
+      options: Record<string, unknown>,
+    ) => Promise<string>
   }
   export default Plotly
 }

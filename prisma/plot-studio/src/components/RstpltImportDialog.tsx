@@ -12,6 +12,8 @@ import type { RstpltCatalog } from '../lib/rstplt'
 
 interface RstpltImportDialogProps {
   catalog: RstpltCatalog
+  mode?: 'import' | 'reselect'
+  initialSelectedIds?: string[]
   busy: boolean
   progress: number
   onCancel: () => void
@@ -38,6 +40,8 @@ function recommendedVariables(catalog: RstpltCatalog) {
 
 export function RstpltImportDialog({
   catalog,
+  mode = 'import',
+  initialSelectedIds = [],
   busy,
   progress,
   onCancel,
@@ -47,9 +51,22 @@ export function RstpltImportDialog({
     () => catalog.variables.filter((variable) => !variable.isTime),
     [catalog.variables],
   )
+  const savedSelection = useMemo(() => {
+    const available = new Set(
+      plottableVariables.map((variable) => variable.id),
+    )
+    return initialSelectedIds.filter((variableId) =>
+      available.has(variableId),
+    )
+  }, [initialSelectedIds, plottableVariables])
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState(
-    () => new Set(recommendedVariables(catalog)),
+    () =>
+      new Set(
+        mode === 'reselect' && savedSelection.length > 0
+          ? savedSelection
+          : recommendedVariables(catalog),
+      ),
   )
 
   const filteredVariables = useMemo(() => {
@@ -106,8 +123,14 @@ export function RstpltImportDialog({
             <FileChartLine size={22} />
           </span>
           <div className="rstplt-dialog-title">
-            <span className="section-kicker">RELAP5 二进制数据</span>
-            <h2 id="rstplt-dialog-title">选择 RSTPLT 曲线</h2>
+            <span className="section-kicker">
+              {mode === 'reselect' ? '已导入数据' : 'RELAP5 二进制数据'}
+            </span>
+            <h2 id="rstplt-dialog-title">
+              {mode === 'reselect'
+                ? '重新选择 RSTPLT 曲线'
+                : '选择 RSTPLT 曲线'}
+            </h2>
             <p title={catalog.fileName}>
               <span>{catalog.fileName}</span>
               <span>{formatFileSize(catalog.fileSize)}</span>
@@ -163,11 +186,22 @@ export function RstpltImportDialog({
             <button
               className="button button-quiet"
               type="button"
-              onClick={() => setSelected(new Set(recommendedVariables(catalog)))}
-              disabled={busy}
+              onClick={() => {
+                setSelected(
+                  new Set(
+                    mode === 'reselect' && savedSelection.length > 0
+                      ? savedSelection
+                      : recommendedVariables(catalog),
+                  ),
+                )
+              }}
+              disabled={
+                busy ||
+                (mode === 'reselect' && savedSelection.length === 0)
+              }
             >
               <ListChecks size={14} />
-              推荐
+              {mode === 'reselect' ? '恢复已选' : '推荐'}
             </button>
             <button
               className="button button-quiet"
@@ -217,7 +251,7 @@ export function RstpltImportDialog({
                   <span className="rstplt-variable-copy">
                     <strong>{variable.code}</strong>
                     <small>
-                      {variable.occurrences.length} 段 /{' '}
+                      #{variable.number} / {variable.occurrences.length} 段 /{' '}
                       {formatCount(variable.recordCount)} 点
                     </small>
                   </span>
@@ -266,7 +300,8 @@ export function RstpltImportDialog({
                   onConfirm(selectedVariables.map((variable) => variable.id))
                 }
               >
-                导入 {selectedVariables.length} 条曲线
+                {mode === 'reselect' ? '更新绘图' : '导入'}{' '}
+                {selectedVariables.length} 条曲线
               </button>
             </div>
           )}

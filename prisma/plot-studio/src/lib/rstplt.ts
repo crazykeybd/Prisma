@@ -551,8 +551,12 @@ export async function loadRstpltDataset(
     throw new Error('请至少选择一条 RSTPLT 曲线。')
   }
 
+  // Keep column keys tied to the full variable catalog so reselecting curves
+  // does not remap columns used by derived series or saved chart state.
   const keys = new Map(
-    selectedVariables.map((variable, index) => [variable.id, `c${index + 2}`]),
+    catalog.variables
+      .filter((variable) => !variable.isTime)
+      .map((variable, index) => [variable.id, `c${index + 2}`]),
   )
   const rows: DataRow[] = []
   const reader = new BufferedFileReader(file)
