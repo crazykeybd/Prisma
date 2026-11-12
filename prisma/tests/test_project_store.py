@@ -371,6 +371,41 @@ class ProjectStoreTests(unittest.TestCase):
             "Input processing completed successfully",
             output.read_text(encoding="utf-8-sig"),
         )
+        workbook = load_workbook(
+            project.root / "data" / "test_check.xlsx",
+            data_only=True,
+        )
+        result_rows = list(workbook.active.iter_rows(values_only=True))
+        workbook.close()
+        self.assertEqual(
+            result_rows[0],
+            ("编号", "期望值", "实际值", "偏差", "结论"),
+        )
+        self.assertEqual(
+            result_rows[1],
+            (
+                "STARTER-001",
+                (
+                    "p@304010000=8.93893E+05；"
+                    "tempf@304010000=753.142；"
+                    "p@364010000=7.64535E+06；"
+                    "tempf@364010000=466.913"
+                ),
+                (
+                    "p@304010000=8.93893E+05；"
+                    "tempf@304010000=753.142；"
+                    "p@364010000=7.64535E+06；"
+                    "tempf@364010000=466.913"
+                ),
+                (
+                    "p@304010000=0；"
+                    "tempf@304010000=0；"
+                    "p@364010000=0；"
+                    "tempf@364010000=0"
+                ),
+                "通过",
+            ),
+        )
         self.assertEqual(
             (
                 project.root

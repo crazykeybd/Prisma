@@ -11,7 +11,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import yaml
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 
 from api import server
 from common.results import ExecutionSummary
@@ -86,8 +86,8 @@ def write_project(
     check = data_dir / "test_check.xlsx"
     workbook = Workbook()
     sheet = workbook.active
-    sheet.append(["编号", "实际结果", "结论"])
-    sheet.append([CASE_NO, None, None])
+    sheet.append(["编号", "期望值", "实际值", "偏差", "结论"])
+    sheet.append([CASE_NO, None, None, None, None])
     workbook.save(check)
     workbook.close()
 
@@ -166,6 +166,15 @@ class CliEndToEndTests(unittest.TestCase):
         self.assertIn("<testsuite", junit)
         self.assertIn(f'name="{CASE_NO}"', junit)
 
+        workbook = load_workbook(reports["excel"], data_only=True)
+        check_rows = list(workbook["Checks"].iter_rows(values_only=True))
+        workbook.close()
+        self.assertEqual(check_rows[0][6:9], ("期望值", "实际值", "偏差"))
+        self.assertEqual(
+            check_rows[1][6:9],
+            (SUCCESS_TEXT, SUCCESS_TEXT, "一致"),
+        )
+
         baseline = (
             self.root
             / "baselines"
@@ -176,6 +185,23 @@ class CliEndToEndTests(unittest.TestCase):
         baseline_data = json.loads(baseline.read_text(encoding="utf-8"))
         self.assertTrue(baseline_data["points"])
         self.assertTrue((self.root / "baselines" / "index.json").is_file())
+
+        workbook = load_workbook(
+            self.root / "data" / "test_check.xlsx",
+            data_only=True,
+        )
+        result_rows = list(workbook.active.iter_rows(values_only=True))
+        workbook.close()
+        self.assertEqual(
+            result_rows[1],
+            (
+                CASE_NO,
+                SUCCESS_TEXT,
+                SUCCESS_TEXT,
+                "一致",
+                "通过",
+            ),
+        )
 
     def test_comparison_failure_returns_one_and_keeps_reports(self):
         write_project(self.root, expected="Input processing did not complete")

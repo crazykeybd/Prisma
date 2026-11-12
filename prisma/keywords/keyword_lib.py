@@ -20,9 +20,11 @@ from common.results import (
     environment_summary,
     file_record,
     point_from_key,
+    read_jsonl,
     screen_excerpt,
     sha256_file,
     utc_now,
+    value_deviation,
     write_check_record,
     write_run_trace,
 )
@@ -48,6 +50,42 @@ from software.relap5_output import extract_value as _relap_extract_value
 
 #: 自定义关键词命令模板里的占位符，例如 ``{dir}``、``{p1}``。
 _TEMPLATE_RE = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
+
+
+def _result_table_cell(records, value_getter):
+    """Render one or more check values for a result-table cell."""
+    if not records:
+        return ""
+    if len(records) == 1:
+        value = value_getter(records[0])
+        return "" if value is None else str(value)
+
+    parts = []
+    for record in records:
+        key = str(record.get("key") or "结果").strip()
+        value = value_getter(record)
+        if value is None or str(value).strip() == "":
+            value = "未提取"
+        parts.append(f"{key}={value}")
+    return "；".join(parts)
+
+
+def _result_table_actual(records):
+    return _result_table_cell(records, lambda item: item.get("actual_value"))
+
+
+def _result_table_expected(records):
+    return _result_table_cell(records, lambda item: item.get("expected_value"))
+
+
+def _result_table_deviation(records):
+    return _result_table_cell(
+        records,
+        lambda item: value_deviation(
+            item.get("expected_value"),
+            item.get("actual_value"),
+        ),
+    )
 
 
 def _software_version(adapter) -> str:
@@ -804,8 +842,39 @@ class KeyPrisma:
 
         if check_file is not None:
             try:
+                existing_checks = [
+                    item
+                    for item in read_jsonl(
+                        run_path / ".prisma" / "checks.jsonl"
+                    )
+                    if str(item.get("case_no") or "").strip()
+                    == str(case_no).strip()
+                ]
+                result_records = [
+                    *existing_checks,
+                    {
+                        "case_no": str(case_no),
+                        "key": str(key or ""),
+                        "expected_value": expected_value,
+                        "actual_value": actual,
+                        "passed": passed,
+                        "status": "passed" if passed else "failed",
+                        "comparison": comparison,
+                    },
+                ]
+                table_conclusion = (
+                    "通过"
+                    if all(item.get("passed") for item in result_records)
+                    else "不通过"
+                )
                 write_result_to_check(
-                    check_file, case_no, actual, conclusion, base=root
+                    check_file,
+                    case_no,
+                    _result_table_actual(result_records),
+                    table_conclusion,
+                    base=root,
+                    expected_value=_result_table_expected(result_records),
+                    deviation=_result_table_deviation(result_records),
                 )
             except Exception as exc:
                 logger.exception("[%s] cannot update result table: %s", case_no, exc)

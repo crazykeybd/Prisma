@@ -82,6 +82,7 @@ LOG_SEQ = 0
 RESULT_VALUE_HEADERS = {
     "期望值": ("期望值", "期望结果"),
     "实际值": ("实际值", "实际结果"),
+    "偏差": ("偏差", "实际值与期望值的偏差"),
 }
 
 # 每个字段的 index 指向 read_script/save_script 返回的七个数据单元格：

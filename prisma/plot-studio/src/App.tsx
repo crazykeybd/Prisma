@@ -95,13 +95,49 @@ const ANALYSIS_ACTIONS: {
   kind: DerivedKind
   label: string
   icon: LucideIcon
+  formula: string
 }[] = [
-  { kind: 'smooth', label: '移动平均', icon: Waves },
-  { kind: 'derivative', label: '求导数', icon: TrendingUp },
-  { kind: 'integral', label: '累计积分', icon: Sigma },
-  { kind: 'normalize', label: '归一化', icon: Gauge },
-  { kind: 'fft', label: 'FFT 频谱', icon: AudioWaveform },
-  { kind: 'regression', label: '线性回归', icon: ChartLine },
+  {
+    kind: 'smooth',
+    label: '移动平均',
+    icon: Waves,
+    formula:
+      'ŷ[i] = (1/k) Σ y[j], j ∈ [i-L, i+R], L = ⌊(k-1)/2⌋, R = k-L-1',
+  },
+  {
+    kind: 'derivative',
+    label: '求导数',
+    icon: TrendingUp,
+    formula:
+      'dy/dx ≈ (y[i+1] - y[i-1]) / (x[i+1] - x[i-1])',
+  },
+  {
+    kind: 'integral',
+    label: '累计积分',
+    icon: Sigma,
+    formula:
+      'Y[i] = Y[i-1] + (y[i-1] + y[i]) × (x[i] - x[i-1]) / 2',
+  },
+  {
+    kind: 'normalize',
+    label: '归一化',
+    icon: Gauge,
+    formula: "y' = (y - min(y)) / (max(y) - min(y))",
+  },
+  {
+    kind: 'fft',
+    label: 'FFT 频谱',
+    icon: AudioWaveform,
+    formula:
+      'A[k] = (2 / Σw[n]) |Σ y[n]w[n]e^(-j2πkn/N)|, w[n] = 0.5 - 0.5cos(2πn/(M-1))',
+  },
+  {
+    kind: 'regression',
+    label: '线性回归',
+    icon: ChartLine,
+    formula:
+      'min Σ(y - (ax+b))², R² = 1 - SS_res / SS_tot',
+  },
 ]
 
 const ANALYSIS_LABELS: Record<DerivedKind, string> = {
@@ -852,6 +888,9 @@ function App() {
       notify(error instanceof Error ? error.message : '分析失败。', 'error')
       return
     }
+    points = points.filter(
+      (point) => Number.isFinite(point.x) && Number.isFinite(point.y),
+    )
     if (points.length === 0) {
       notify('处理后的数据点不足，请检查横轴是否存在重复值。', 'error')
       return
@@ -1629,9 +1668,18 @@ function App() {
                         type="button"
                         key={action.kind}
                         onClick={() => runAnalysis(action.kind)}
+                        aria-label={`${action.label}，公式：${action.formula}`}
+                        title={action.formula}
                       >
                         <Icon size={17} />
                         <span>{action.label}</span>
+                        <span
+                          className="analysis-formula-tooltip"
+                          aria-hidden="true"
+                        >
+                          <span>{action.label}公式</span>
+                          <code>{action.formula}</code>
+                        </span>
                       </button>
                     )
                   })}

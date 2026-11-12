@@ -23,7 +23,7 @@ class ResultTableTests(unittest.TestCase):
         workbook.close()
         return path
 
-    def test_result_headers_are_normalized_to_expected_and_actual_values(self):
+    def test_result_headers_are_normalized_to_result_value_columns(self):
         with tempfile.TemporaryDirectory(prefix="prisma-result-") as temp_dir:
             path = self._workbook(
                 Path(temp_dir),
@@ -31,7 +31,8 @@ class ResultTableTests(unittest.TestCase):
             )
             rows = read_results(path)["rows"]
 
-        self.assertEqual(rows[0][3:5], ["期望值", "实际值"])
+        self.assertEqual(rows[0][3:6], ["期望值", "实际值", "偏差"])
+        self.assertEqual(rows[1][3:6], ["1.0", "1.0", ""])
 
     def test_missing_expected_and_actual_columns_are_added(self):
         with tempfile.TemporaryDirectory(prefix="prisma-result-") as temp_dir:
@@ -43,9 +44,9 @@ class ResultTableTests(unittest.TestCase):
 
         self.assertEqual(
             rows[0],
-            ["编号", "名称", "输入", "期望值", "实际值", "结论"],
+            ["编号", "名称", "输入", "期望值", "实际值", "偏差", "结论"],
         )
-        self.assertEqual(rows[1][3:5], ["", ""])
+        self.assertEqual(rows[1][3:6], ["", "", ""])
 
 
 class ProjectRelativePathTests(unittest.TestCase):

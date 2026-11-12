@@ -685,7 +685,9 @@ class CheckOutputTests(unittest.TestCase):
         self,
         context: RunContext,
         case_no: str,
+        expected: str,
         actual: str,
+        deviation: str,
         conclusion: str,
     ) -> None:
         workbook = load_workbook(
@@ -694,7 +696,14 @@ class CheckOutputTests(unittest.TestCase):
         )
         rows = list(workbook.active.iter_rows(values_only=True))
         workbook.close()
-        self.assertEqual(rows[1], (case_no, actual, conclusion))
+        self.assertEqual(
+            rows[0],
+            ("编号", "期望值", "实际值", "偏差", "结论"),
+        )
+        self.assertEqual(
+            rows[1],
+            (case_no, expected, actual, deviation, conclusion),
+        )
         release_log_file()
 
     def test_generic_key_value_format(self):
@@ -714,8 +723,164 @@ class CheckOutputTests(unittest.TestCase):
                 context,
                 "TC-GENERIC",
                 "1.00003",
+                "1.00003",
+                "0",
                 "通过",
             )
+
+    def test_numeric_deviation_is_actual_minus_expected(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output = self._write_output(temp_dir, "pressure: 12.5\n")
+            context = self._context(temp_dir, "TC-DELTA")
+
+            self.assertFalse(
+                KeyPrisma.check_output(
+                    "TC-DELTA",
+                    temp_dir,
+                    output.name,
+                    "pressure",
+                    "10.0",
+                    context=context,
+                )
+            )
+
+            self._assert_result_row(
+                context,
+                "TC-DELTA",
+                "10.0",
+                "12.5",
+                "2.5",
+                "不通过",
+            )
+
+    def test_legacy_result_headers_are_normalized_without_duplicate_columns(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output = self._write_output(temp_dir, "pressure: 12.5\n")
+            context = self._context(temp_dir, "TC-LEGACY")
+            workbook = Workbook()
+            sheet = workbook.active
+            sheet.append(
+                [
+                    "编号",
+                    "期望结果",
+                    "实际结果",
+                    "实际值与期望值的偏差",
+                    "结论",
+                ]
+            )
+            sheet.append(["TC-LEGACY", None, None, None, None])
+            workbook.save(context.root / "data" / "test_check.xlsx")
+            workbook.close()
+
+            self.assertFalse(
+                KeyPrisma.check_output(
+                    "TC-LEGACY",
+                    temp_dir,
+                    output.name,
+                    "pressure",
+                    "10.0",
+                    context=context,
+                )
+            )
+
+            self._assert_result_row(
+                context,
+                "TC-LEGACY",
+                "10.0",
+                "12.5",
+                "2.5",
+                "不通过",
+            )
+
+    def test_multiple_checks_are_aggregated_in_result_table(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output = self._write_output(
+                temp_dir,
+                "pressure: 1.0E+05\ntemperature: 300.0\n",
+            )
+            context = self._context(temp_dir, "TC-MULTI")
+
+            self.assertTrue(
+                KeyPrisma.check_output(
+                    "TC-MULTI",
+                    temp_dir,
+                    output.name,
+                    "pressure",
+                    "1.0E+05",
+                    context=context,
+                )
+            )
+            self.assertTrue(
+                KeyPrisma.check_output(
+                    "TC-MULTI",
+                    temp_dir,
+                    output.name,
+                    "temperature",
+                    "300.0",
+                    context=context,
+                )
+            )
+
+            self._assert_result_row(
+                context,
+                "TC-MULTI",
+                "pressure=1.0E+05；temperature=300.0",
+                "pressure=1.0E+05；temperature=300.0",
+                "pressure=0；temperature=0",
+                "通过",
+            )
+
+    def test_result_table_ignores_checks_from_other_cases(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output = self._write_output(temp_dir, "pressure: 1.0E+05\n")
+            context = self._context(temp_dir, "TC-CURRENT")
+            artifact_dir = Path(temp_dir) / ".prisma"
+            artifact_dir.mkdir()
+            (artifact_dir / "checks.jsonl").write_text(
+                (
+                    '{"case_no": "TC-OTHER", "key": "temperature", '
+                    '"actual_value": "300.0", "passed": false, '
+                    '"status": "failed"}\n'
+                ),
+                encoding="utf-8",
+            )
+
+            self.assertTrue(
+                KeyPrisma.check_output(
+                    "TC-CURRENT",
+                    temp_dir,
+                    output.name,
+                    "pressure",
+                    "1.0E+05",
+                    context=context,
+                )
+            )
+
+            self._assert_result_row(
+                context,
+                "TC-CURRENT",
+                "1.0E+05",
+                "1.0E+05",
+                "0",
+                "通过",
+            )
+
+    def test_missing_result_row_fails_instead_of_being_ignored(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output = self._write_output(temp_dir, "keff: 1.00003\n")
+            context = self._context(temp_dir, "TC-OTHER")
+
+            ok = KeyPrisma.check_output(
+                "TC-MISSING",
+                temp_dir,
+                output.name,
+                "keff",
+                "1.00003",
+                context=context,
+            )
+
+            self.assertFalse(ok)
+            release_log_file()
 
     def test_nested_output_path_can_be_checked(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -755,6 +920,8 @@ class CheckOutputTests(unittest.TestCase):
                 context,
                 "TC-RELAP",
                 "1.00000E+05",
+                "1.00000E+05",
+                "0",
                 "通过",
             )
 
@@ -780,7 +947,34 @@ class CheckOutputTests(unittest.TestCase):
                 context,
                 "TC-NUSOL",
                 "1.00000E+05",
+                "1.00000E+05",
+                "0",
                 "通过",
+            )
+
+    def test_non_numeric_mismatch_is_shown_as_inconsistent(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output = self._write_output(temp_dir, "status: success\n")
+            context = self._context(temp_dir, "TC-TEXT")
+
+            self.assertFalse(
+                KeyPrisma.check_output(
+                    "TC-TEXT",
+                    temp_dir,
+                    output.name,
+                    "status",
+                    "failed",
+                    context=context,
+                )
+            )
+
+            self._assert_result_row(
+                context,
+                "TC-TEXT",
+                "failed",
+                "success",
+                "不一致",
+                "不通过",
             )
 
     def test_reserved_software_parser_fails_explicitly(self):

@@ -13,6 +13,7 @@ import sys
 import threading
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
@@ -278,6 +279,23 @@ def _as_number(value: Any) -> float | None:
     except (TypeError, ValueError):
         return None
     return number if math.isfinite(number) else None
+
+
+def value_deviation(expected: Any, actual: Any) -> str:
+    """Return actual minus expected, or a text match indicator."""
+    expected_text = "" if expected is None else str(expected).strip()
+    actual_text = "" if actual is None else str(actual).strip()
+    if not expected_text or not actual_text:
+        return ""
+    try:
+        expected_number = Decimal(expected_text)
+        actual_number = Decimal(actual_text)
+        if not expected_number.is_finite() or not actual_number.is_finite():
+            raise InvalidOperation
+        difference = actual_number - expected_number
+        return "0" if difference == 0 else str(difference.normalize())
+    except (InvalidOperation, ValueError):
+        return "一致" if actual_text == expected_text else "不一致"
 
 
 def _point_identity(point: dict, index: int) -> str:

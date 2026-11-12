@@ -99,30 +99,90 @@ def release_log_file():
         handler.close()
 
 
-def write_result_to_check(check_file, case_no, value, conclusion="待比对", base=None):
+def _ensure_result_columns(ws):
+    """Upgrade a result sheet to expected/actual/deviation columns."""
+
+    def header_columns():
+        return {
+            str(cell.value).strip(): cell.column
+            for cell in ws[1]
+            if cell.value is not None and str(cell.value).strip()
+        }
+
+    headers = header_columns()
+    actual_col = headers.get("实际值")
+    if actual_col is None and "实际结果" in headers:
+        actual_col = headers["实际结果"]
+        ws.cell(1, actual_col).value = "实际值"
+    if actual_col is None:
+        raise ValueError(
+            "check table must contain 实际值 or 实际结果 column"
+        )
+
+    if "期望值" in headers:
+        expected_col = headers["期望值"]
+    elif "期望结果" in headers:
+        expected_col = headers["期望结果"]
+        ws.cell(1, expected_col).value = "期望值"
+    else:
+        expected_col = actual_col
+        ws.insert_cols(expected_col)
+        ws.cell(1, expected_col).value = "期望值"
+        actual_col += 1
+
+    headers = header_columns()
+    if "偏差" in headers:
+        deviation_col = headers["偏差"]
+    elif "实际值与期望值的偏差" in headers:
+        deviation_col = headers["实际值与期望值的偏差"]
+        ws.cell(1, deviation_col).value = "偏差"
+    else:
+        deviation_col = actual_col + 1
+        ws.insert_cols(deviation_col)
+        ws.cell(1, deviation_col).value = "偏差"
+
+    return expected_col, actual_col, deviation_col
+
+
+def write_result_to_check(
+    check_file,
+    case_no,
+    value,
+    conclusion="待比对",
+    base=None,
+    *,
+    expected_value=None,
+    deviation=None,
+):
     path = resolve_path(check_file, base)
     with CHECK_LOCK:
         wb = load_workbook(path)
         ws = wb.active
-        headers = {}
-        for c in range(1, ws.max_column + 1):
-            v = ws.cell(1, c).value
-            if v is not None:
-                headers[str(v).strip()] = c
+        expected_col, actual_col, deviation_col = _ensure_result_columns(ws)
+        headers = {
+            str(cell.value).strip(): cell.column
+            for cell in ws[1]
+            if cell.value is not None and str(cell.value).strip()
+        }
         no_col = headers.get("编号")
-        res_col = headers.get("实际结果")
         con_col = headers.get("结论")
-        if not no_col or not res_col:
+        if not no_col:
             wb.close()
-            raise ValueError("check table must contain 编号 and 实际结果 columns")
+            raise ValueError("check table must contain 编号 column")
         target_row = None
         for r in range(2, ws.max_row + 1):
             if str(ws.cell(r, no_col).value).strip() == str(case_no).strip():
                 target_row = r
                 break
-        if target_row:
-            ws.cell(target_row, res_col).value = value
-            if con_col:
-                ws.cell(target_row, con_col).value = conclusion
+        if target_row is None:
+            wb.close()
+            raise ValueError(
+                f"check table has no row for case number: {case_no}"
+            )
+        ws.cell(target_row, expected_col).value = expected_value
+        ws.cell(target_row, actual_col).value = value
+        ws.cell(target_row, deviation_col).value = deviation
+        if con_col:
+            ws.cell(target_row, con_col).value = conclusion
         wb.save(path)
         wb.close()

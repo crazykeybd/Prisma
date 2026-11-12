@@ -419,6 +419,9 @@ TC-RELAP-MINI   RELAP-MINI-001  folder_prep   运行目录     relap5\mini.i   r
 - `run_relap5` 会以 `relap5.exe -i indta -o outdta` 方式运行（输入自动暂存为 indta，物性文件 tpf* 自动拷入运行目录，运行前自动删除旧 outdta/rstplt——该 exe 拒绝覆盖已有 outdta）；它只接受非空 PE 程序，0 字节/非 PE 占位文件不会被使用
 - 运行后自动分析 outdta：`Input processing completed successfully` 视为成功；`0********` 开头的诊断行（如 junction 高程闭合错误）会写入日志
 - `check_output` 支持 RELAP 变量写法：`p@控制体编号`、`tempf@控制体编号` 等（按 Vol.no. 表头取列，取最后一次大编辑的值），也支持带一个捕获组的正则
+- 结果表使用 `编号 / 期望值 / 实际值 / 偏差 / 结论` 列；偏差按 `实际值 - 期望值` 计算，非数值结果使用 `一致` / `不一致`
+- 同一用例包含多个 `check_output` 时，期望值、实际值和偏差三列分别按 `检查键=值` 使用 `；` 汇总；只有一个检查时仍只写值
+- 运行报告 `results.xlsx` 的 `Checks` 表同样包含 `期望值 / 实际值 / 偏差` 列
 - 数值比对容差为 max(1e-6, 1e-4*|期望值|)
 - 注意：该 exe（RBIC/3.2）用老版卡片格式——部件卡为 7 位 `CCC0000 名称 类型`，几何卡 0101/0102 分两行，初始条件在 0200 卡
 - 可运行示例：`data/examples/test_data_relap5_mini.xlsx`（配套 `test_check_relap5_mini.xlsx`、输入卡 `inputs/relap5/mini.i`），真实模式下约 1 秒跑完并通过

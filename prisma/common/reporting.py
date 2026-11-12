@@ -24,6 +24,7 @@ from common.results import (
     read_jsonl,
     safe_token,
     utc_now,
+    value_deviation,
     write_json_atomic,
 )
 
@@ -50,6 +51,15 @@ def _number(value):
     except (TypeError, ValueError):
         return value
     return number
+
+
+def _report_deviation(check: dict):
+    return _number(
+        value_deviation(
+            check.get("expected_value"),
+            check.get("actual_value"),
+        )
+    )
 
 
 def _baseline_path(project_root: Path, software_key: str, case_no: str) -> Path:
@@ -673,6 +683,7 @@ def write_excel(data: dict, path: Path) -> Path:
             "数据类型",
             "期望值",
             "实际值",
+            "偏差",
             "状态",
             "绝对误差",
             "相对误差",
@@ -698,6 +709,7 @@ def write_excel(data: dict, path: Path) -> Path:
                     point.get("data_type"),
                     check.get("expected_value"),
                     check.get("actual_value"),
+                    _report_deviation(check),
                     check.get("status"),
                     comparison.get("max_abs_error"),
                     comparison.get("max_relative_error"),
@@ -716,8 +728,9 @@ def write_excel(data: dict, path: Path) -> Path:
             2: 22,
             7: 20,
             8: 20,
-            11: 18,
-            17: 60,
+            9: 18,
+            12: 18,
+            18: 60,
         },
     )
 

@@ -197,8 +197,8 @@ def _create_starter_workbooks(
     check = Workbook()
     result_sheet = check.active
     result_sheet.title = "testcheck"
-    result_sheet.append(["编号", "实际结果", "结论"])
-    result_sheet.append(["STARTER-001", None, None])
+    result_sheet.append(["编号", "期望值", "实际值", "偏差", "结论"])
+    result_sheet.append(["STARTER-001", None, None, None, None])
     check.save(root / "data" / "test_check.xlsx")
     check.close()
 
