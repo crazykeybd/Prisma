@@ -76,8 +76,14 @@
   .table-panel table { min-width:620px; }
   .case-card { border:1px solid var(--line); border-radius:7px; padding:13px 14px 12px;
     margin-bottom:14px; background:#fff; box-shadow:var(--shadow); overflow:hidden; }
+  .case-body[hidden] { display:none; }
   .case-head { display:flex; align-items:center; gap:9px; margin-bottom:11px;
     padding-bottom:10px; border-bottom:1px solid var(--line-soft); min-width:0; }
+  .case-card.collapsed { padding-bottom:13px; }
+  .case-card.collapsed .case-head { margin-bottom:0; padding-bottom:0; border-bottom:0; }
+  .case-toggle { min-width:66px; height:30px; padding:0 9px; display:inline-flex; align-items:center;
+    justify-content:center; gap:4px; flex-shrink:0; color:#42566d; background:#f7f9fc; }
+  .case-toggle-icon { width:12px; text-align:center; color:var(--acc); }
   .case-head .label { color:var(--dim); font-size:13px; flex-shrink:0; }
   .case-head input { width:min(260px,50%); }
   .case-head .spacer { flex:1; }
@@ -99,7 +105,8 @@
   .step-row .field-p5 { grid-column:9; grid-row:1; }
   .step-row .step-actions { grid-column:-1; grid-row:1; display:flex; gap:4px; justify-content:flex-end; align-items:center; }
   .step-field { display:block; min-width:0; }
-  .step-field input, .step-field select { width:100%; }
+  .step-field input, .step-field textarea, .step-field select { width:100%; }
+  .step-field textarea { min-height:72px; resize:vertical; line-height:1.45; }
   .step-row .copy { width:38px; padding:0; color:#52657a; }
   .step-row .copy:hover { color:var(--acc); background:#eef6ff; border-color:#bfd7f2; }
   .step-row .del { width:26px; padding:0; color:#8794a5; }
@@ -110,13 +117,36 @@
   .step-insert button { height:22px; padding:0 9px; border-style:dashed; border-color:#cbd7e5; background:#fff; color:var(--dim); font-size:11px; white-space:nowrap; }
   .step-insert button:hover { border-style:solid; border-color:#a9c4e2; background:#f2f8ff; color:var(--acc); }
   .step-row .field-note { display:block; margin-top:4px; color:var(--dim); font-size:11px; line-height:1.35; white-space:normal; }
-  .step-row .field-target input { font-family:Consolas,"Cascadia Mono",monospace; background:#f7f9fc; }
+  .step-row .field-target textarea { font-family:Consolas,"Cascadia Mono",monospace; background:#f7f9fc; }
   .step-row .inp-picker { grid-column:2 / -2; grid-row:2; margin-top:8px; padding:10px; border:1px solid var(--line-soft); border-radius:6px; background:#f8fafc; align-self:stretch; }
   .inp-picker-row { display:grid; grid-template-columns:minmax(160px,1fr) auto minmax(180px,1fr) auto; gap:8px; align-items:center; }
   .inp-picker-row input { width:100%; }
   .inp-picker-hint { color:var(--dim); font-size:11px; line-height:1.5; margin-top:5px; }
+  .inp-selection-head { display:flex; align-items:center; justify-content:space-between; gap:8px;
+    margin-top:8px; color:var(--dim); font-size:12px; }
+  .inp-selection-head b { color:#344255; }
+  .inp-selection-clear { height:26px; padding:0 8px; font-size:11px; }
+  .inp-selection-list { display:grid; gap:5px; margin-top:6px; }
+  .inp-selection-item { display:grid; grid-template-columns:24px minmax(0,1fr) minmax(110px,190px) 26px; gap:8px;
+    align-items:center; min-height:34px; padding:5px 7px; border:1px solid #d9e4f1;
+    border-radius:5px; background:#fff; }
+  .inp-selection-index { color:var(--dim); font-size:11px; text-align:right; font-variant-numeric:tabular-nums; }
+  .inp-selection-info { min-width:0; display:flex; flex-direction:column; gap:2px; }
+  .inp-selection-target { min-width:0; color:var(--acc); font-family:Consolas,"Cascadia Mono",monospace;
+    font-size:11px; line-height:1.4; overflow-wrap:anywhere; }
+  .inp-selection-current { color:var(--dim); font-size:10px; line-height:1.35; overflow-wrap:anywhere; }
+  .inp-selection-current b { color:#344255; font-family:Consolas,"Cascadia Mono",monospace; font-weight:500; }
+  .inp-selection-current.missing { color:var(--bad); }
+  .inp-selection-new { width:100%; min-width:0; height:28px; font-family:Consolas,"Cascadia Mono",monospace; font-size:12px; }
+  .inp-selection-empty { padding:8px 10px; border:1px dashed #cbd7e5; border-radius:5px;
+    color:var(--dim); background:#fff; font-size:11px; }
+  .inp-selection-remove { width:26px; height:26px; padding:0; color:#8794a5; }
+  .inp-selection-remove:hover { color:var(--bad); background:var(--bad-bg); border-color:#f0c6ca; }
   .inp-results { max-height:240px; overflow:auto; margin-top:8px; border:1px solid var(--line-soft); border-radius:5px; background:#fff; }
   .inp-results:empty { display:none; }
+  .field-with-browse { display:flex; align-items:center; gap:5px; min-width:0; }
+  .field-with-browse input { flex:1 1 auto; width:100%; }
+  .field-with-browse button { flex:0 0 auto; height:32px; padding:0 9px; }
   .inp-result {
     width:100%; height:auto; min-height:40px; margin:0; display:grid;
     grid-template-columns:minmax(132px,.85fr) minmax(210px,1.65fr) minmax(72px,.55fr);
@@ -130,6 +160,35 @@
   .inp-result-target { font-family:Consolas,"Cascadia Mono",monospace; color:var(--acc); }
   .inp-result-meta { color:var(--dim); }
   .inp-result-value { justify-self:end; text-align:right; font-family:Consolas,"Cascadia Mono",monospace; color:#344255; white-space:normal; }
+  .inp-matrix-card { margin:8px; border:1px solid var(--line); border-radius:6px; overflow:hidden; background:#fff; }
+  .inp-matrix-head { padding:8px 10px; border-bottom:1px solid var(--line-soft); background:#f7f9fc; }
+  .inp-matrix-title { display:flex; flex-wrap:wrap; gap:3px 10px; align-items:baseline;
+    color:#344255; font-size:12px; line-height:1.45; }
+  .inp-matrix-title b { font-family:Consolas,"Cascadia Mono",monospace; color:var(--acc); font-weight:600; }
+  .inp-matrix-meta { color:var(--dim); font-size:11px; }
+  .inp-matrix-desc { margin-top:3px; color:var(--dim); font-size:11px; line-height:1.45; overflow-wrap:anywhere; }
+  .inp-matrix-scroll { overflow-x:auto; }
+  .inp-matrix { width:max-content; min-width:100%; border-collapse:separate; border-spacing:0;
+    table-layout:auto; font-size:12px; }
+  .inp-matrix th, .inp-matrix td { padding:0; border:0; border-right:1px solid var(--line-soft);
+    border-bottom:1px solid var(--line-soft); background:#fff; vertical-align:middle; }
+  .inp-matrix th:last-child, .inp-matrix td:last-child { border-right:0; }
+  .inp-matrix tbody tr:last-child th, .inp-matrix tbody tr:last-child td { border-bottom:0; }
+  .inp-matrix thead th { min-width:92px; padding:6px 8px; background:#f4f7fb; color:var(--dim);
+    text-align:center; font-size:11px; font-weight:600; white-space:nowrap; }
+  .inp-matrix tbody th { min-width:62px; padding:6px 8px; background:#f8fafc; color:var(--dim);
+    text-align:center; font-size:11px; font-weight:500; white-space:nowrap; }
+  .inp-matrix tbody tr:hover { background:transparent; }
+  .inp-matrix-cell { width:100%; min-width:92px; height:auto; min-height:50px; padding:6px 9px;
+    display:flex; flex-direction:column; align-items:flex-start; justify-content:center; gap:2px;
+    border:0; border-radius:0; background:#fff; text-align:left; white-space:normal; }
+  .inp-matrix-cell:hover, .inp-matrix-cell.selected { border:0; background:#eef6ff;
+    box-shadow:inset 0 0 0 1px #bfd7f2; }
+  .inp-matrix-value { max-width:100%; color:#26384b; font-family:Consolas,"Cascadia Mono",monospace;
+    line-height:1.4; overflow-wrap:anywhere; }
+  .inp-matrix-field { color:var(--dim); font-size:10px; line-height:1.25; }
+  .inp-matrix-empty { min-width:92px; height:50px; padding:6px 9px; color:#a4afbd;
+    text-align:center; font-size:11px; }
   .inp-empty { padding:10px; color:var(--dim); font-size:12px; }
   .mobile-label { display:none; }
   .add-step { margin-top:2px; }
@@ -303,7 +362,7 @@
   .wiz-preview .wiz-preview-case:last-child { margin-bottom:0; }
   .wiz-preview code { font-family:Consolas,"Cascadia Mono",monospace; color:var(--acc); }
   .script-path-bar { grid-template-columns:76px minmax(0,1fr) minmax(150px,215px) auto auto; }
-  .step-field.missing input, .step-field.missing select { border-color:#e2a3a8; background:#fffafa; }
+  .step-field.missing input, .step-field.missing textarea, .step-field.missing select { border-color:#e2a3a8; background:#fffafa; }
   .case-head .case-actions { display:flex; gap:6px; flex-wrap:wrap; margin-left:4px; }
   .case-steps-bar { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:7px;
     padding-top:9px; border-top:1px dashed var(--line-soft); }
@@ -371,6 +430,7 @@
     .case-head input { width:auto; flex:1 1 180px; }
     .case-head .spacer { display:none; }
     .case-head button { margin-left:auto; }
+    .case-head .case-toggle { margin-left:0; }
     .step-row { grid-template-columns:22px minmax(0,1fr) 72px; }
     .step-row.dynamic { grid-template-columns:22px minmax(0,1fr) 72px; row-gap:15px; }
     .step-row.dynamic .idx { grid-row:1 / span 8; }
@@ -389,6 +449,14 @@
     .inp-result-target { grid-area:target; }
     .inp-result-meta { grid-area:meta; }
     .inp-result-value { grid-area:value; }
+    .inp-selection-item { grid-template-columns:22px minmax(0,1fr) 26px; }
+    .inp-selection-info { grid-column:2; }
+    .inp-selection-new { grid-column:2; grid-row:2; }
+    .inp-selection-remove { grid-column:3; grid-row:1 / span 2; }
+    .inp-matrix-card { margin:6px; }
+    .inp-matrix-head { padding:7px 8px; }
+    .inp-matrix-title { display:block; }
+    .inp-matrix-meta { display:block; margin-top:2px; }
     .step-row .step-actions { grid-row:1; grid-column:3; justify-self:end; }
     .form-row, .form-row.no-action { grid-template-columns:1fr; gap:5px; }
     .form-row.path-row { grid-template-columns:minmax(0,1fr) auto auto; }
@@ -573,13 +641,15 @@
       <div class="toolbar">
         <div>
           <h2 class="page">输入卡解析</h2>
-          <div class="hint" style="margin:3px 0 0">支持 RELAP5 卡格式，以及“左侧值列 + 右侧说明列”的位置型输入卡；无法识别的行会保留并标记。</div>
+          <div class="hint" style="margin:3px 0 0">支持 RELAP5 卡格式、位置型输入卡、分层对象/矩阵文本和 JSON；无法识别的行会保留并标记。</div>
         </div>
         <div class="spacer"></div>
         <select id="relapInputFormat" aria-label="输入卡格式" onchange="if(document.getElementById('relapInputPath').value.trim()) loadRelapInput()">
           <option value="">自动识别格式</option>
           <option value="relap5">RELAP5 卡格式</option>
           <option value="positional_text">位置型值 + 说明</option>
+          <option value="structured_text">结构化对象 + 矩阵</option>
+          <option value="json">JSON 对象 + 数组</option>
         </select>
         <button onclick="loadRelapInput()">解析输入卡文件</button>
         <button onclick="pickPath('relapInputPath','input')">浏览...</button>
@@ -2099,6 +2169,8 @@ function relapFormatLabel(value) {
     "fixed-width": "固定列 / 标准卡",
     "free-format": "自由格式",
     "positional-text": "位置型值 + 说明",
+    "structured-text": "结构化对象 + 矩阵",
+    "json": "JSON 对象 + 数组",
     "mixed": "混合格式",
     "unknown": "未识别",
   })[value] || (value || "未识别");
@@ -2106,7 +2178,11 @@ function relapFormatLabel(value) {
 
 function relapKindLabel(row) {
   if (row.kind === "card") return row.format === "fixed-width" ? "卡片 · 固定列" : "卡片 · 自由格式";
-  if (row.kind === "record") return "位置型参数记录";
+  if (row.kind === "record") {
+    if (row.format === "structured-text") return "对象 / 矩阵变量";
+    if (row.format === "json") return "JSON 变量记录";
+    return "位置型参数记录";
+  }
   if (row.kind === "blank") return "空行";
   if (row.kind === "continuation") return "续行";
   if (row.kind === "comment") return "注释";
@@ -2128,6 +2204,9 @@ function renderRelapResult(data) {
   const warnings = s.warnings || [];
   const categories = s.categories || {};
   const isPositional = s.profile === "positional_text";
+  const isStructured = s.profile === "structured_text";
+  const isJson = s.profile === "json";
+  const isVariableProfile = isPositional || isStructured || isJson;
   const categoryOptions = Object.keys(categories).map(name =>
     `<option value="${esc(name)}">${esc(name)} (${categories[name]})</option>`).join("");
   panel.innerHTML = `
@@ -2135,8 +2214,8 @@ function renderRelapResult(data) {
       <b>${esc(s.filename || "-")}</b>${s.path ? ` · ${esc(s.path)}` : ""}<br>
       编码 <b>${esc(s.encoding || "-")}</b> · 换行 <b>${esc(s.newline || "-")}</b> · 格式 <b>${esc(relapFormatLabel(s.format))}</b>
       · 总行数 <b>${s.total_lines ?? 0}</b> · 非空行 <b>${s.nonempty_lines ?? 0}</b><br>
-      ${isPositional
-        ? `参数记录 <b>${s.total_records ?? 0}</b> · 字段 <b>${s.record_fields ?? 0}</b> · 数值字段 <b>${s.numeric_fields ?? 0}</b> · 说明列 <b>${s.description_column ?? "-"}</b>`
+      ${isVariableProfile
+        ? `参数记录 <b>${s.total_records ?? 0}</b> · 字段 <b>${s.record_fields ?? 0}</b> · 数值字段 <b>${s.numeric_fields ?? 0}</b>${isPositional ? ` · 说明列 <b>${s.description_column ?? "-"}</b>` : ""}`
         : `卡片 <b>${s.total_cards ?? 0}</b> · 唯一卡号 <b>${s.unique_cards ?? 0}</b> · 续行 <b>${s.continuation_lines ?? 0}</b> · 注释 <b>${s.comment_lines ?? 0}</b>`}
       · 未识别 <b>${s.unparsed_lines ?? 0}</b>
       ${s.title ? `<br>标题 <b>${esc(s.title)}</b>` : ""}
@@ -2144,6 +2223,10 @@ function renderRelapResult(data) {
     <div class="relap-features">
       ${isPositional
         ? `${relapFeature("参数记录", (s.total_records ?? 0) > 0)}${relapFeature("多值字段", (s.record_fields ?? 0) > (s.total_records ?? 0))}${relapFeature("说明列", (s.description_column ?? 0) > 0)}`
+        : isStructured
+        ? `${relapFeature("分层对象", (s.total_records ?? 0) > 0)}${relapFeature("矩阵字段", (s.record_fields ?? 0) > (s.total_records ?? 0))}${relapFeature("稳定定位", (s.total_records ?? 0) > 0)}`
+        : isJson
+        ? `${relapFeature("JSON 对象", (s.total_records ?? 0) > 0)}${relapFeature("数组 / 标量", (s.record_fields ?? 0) > 0)}${relapFeature("字段定位", (s.total_records ?? 0) > 0)}`
         : `${relapFeature("结束卡", s.has_end_card)}${relapFeature("时间控制", s.has_time_control)}${relapFeature("水力学组件", s.has_hydrodynamic)}${relapFeature("热构件", s.has_heat_structure)}`}
     </div>
     ${warnings.length ? `<div class="relap-warnings"><b>解析提示</b><ul>${warnings.map(w => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
@@ -2181,7 +2264,8 @@ function renderRelapRows() {
     const fields = (row.fields || []).length
       ? row.fields.map((field, index) => {
         const target = row.field_targets && row.field_targets[index] ? row.field_targets[index].target : "";
-        return `<span class="relap-pill" title="${esc(`字段 ${index + 1}: ${field}${target ? ` · ${target}` : ""}`)}">${esc(field)}</span>`;
+        const fieldLine = row.field_line_nos && row.field_line_nos[index] ? row.field_line_nos[index] : row.line_no;
+        return `<span class="relap-pill" title="${esc(`字段 ${index + 1} · 物理第 ${fieldLine} 行: ${field}${target ? ` · ${target}` : ""}`)}">${esc(field)}</span>`;
       }).join(" ")
       : "<span style=\"color:#9aa8b8\">-</span>";
     return `<tr class="${rowClass}">
@@ -2389,8 +2473,11 @@ function renderWizardHits(rowIndex) {
   if (!results.length) { box.innerHTML = ""; return; }
   box.innerHTML = results.map((item, index) => {
     const value = item && item.value != null ? String(item.value) : "";
-    const meta = item && item.profile === "positional_text"
+    const profile = item && item.profile;
+    const meta = profile === "positional_text"
       ? `记录 ${esc(item.record_id || "-")} · 字段 ${esc(item.field ?? "-")}`
+      : profile === "structured_text" || profile === "json"
+      ? `变量 ${esc(item.record_id || "-")} · 字段 ${esc(item.field ?? "-")}`
       : `卡 ${esc(item.card_id || "-")} · ${esc(item.target_keyword || item.keyword || "-")} · 字段 ${esc(item.field ?? "-")}`;
     return `<button type="button" class="wiz-hit" data-wiz-row="${rowIndex}" data-wiz-index="${index}">`
       + `<b>${esc(item && item.target ? item.target : "")}</b> · ${meta}`
@@ -2534,11 +2621,11 @@ let ACTION_SPECS = {
     { index: 4, role: "param", label: "可执行程序", placeholder: "例如：relap5.exe", required: false },
     { index: 5, role: "param", label: "附加依赖（可选）", placeholder: "全部 / runtime/*.dll / properties/tpfh2o；留空 = 软件库 bin + 默认依赖；无 = 不复制", required: false },
   ]},
-  modify_inp: { name: "modify_inp", object: "输入卡文件名", params: "变量定位, 新值", desc: "检索输入卡变量并原位修改；支持卡定位和位置型 L行号:字段序号@行号", fields: [
+  modify_inp: { name: "modify_inp", object: "输入卡文件名", params: "变量定位（多项换行）, 新值（逐行对应）", desc: "检索并原位修改一个或多个输入卡变量；多个变量使用换行分隔且定位与新值逐行对应", fields: [
     { index: 0, role: "dir", label: "运行目录", placeholder: "先运行 folder_prep，例如 test_cases/case_01", required: true },
     { index: 2, role: "object", label: "输入卡文件", placeholder: "例如：input.txt 或 indta", required: true },
-    { index: 3, role: "target", label: "变量定位", placeholder: "从下方检索结果选择", required: true, readonly: true },
-    { index: 4, role: "value", label: "新值（修改后）", placeholder: "例如：transnt 或 1.5e7", required: true },
+    { index: 3, role: "target", label: "变量定位（每行一个）", placeholder: "从下方检索结果连续添加变量", required: true, readonly: true },
+    { index: 4, role: "value", label: "新值（逐行对应）", placeholder: "每行填写上方对应变量的新值，例如：transnt 或 1.5e7", required: true },
   ]},
   run: { name: "run", object: "可执行程序名", params: "输出文件名, 结果关键字, 模拟值", desc: "运行普通被测程序；RELAP5 请改用 run_software 或兼容入口 run_relap5，结果检查用 outdta 变量", fields: [
     { index: 0, role: "dir", label: "运行目录", placeholder: "运行目录", required: true },
@@ -2582,6 +2669,7 @@ let ACTION_SPECS = {
 };
 let ACTION_ORDER = Object.keys(ACTION_SPECS);
 let inpPickerState = {};
+let collapsedCases = new WeakSet();
 let keywordSpecsPromise = null;
 
 function normalizeRow(row) {
@@ -2766,77 +2854,324 @@ function inpPickerError(ci, ri) {
   const state = inpPickerState[inpPickerKey(ci, ri)];
   return state && state.error ? state.error : "";
 }
+function inpTextLines(value) {
+  const text = String(value == null ? "" : value).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  return text === "" ? [] : text.split("\n");
+}
+function inpValueLines(value) {
+  const lines = inpTextLines(value);
+  while (lines.length && lines[lines.length - 1] === "") lines.pop();
+  return lines;
+}
+function inpTargetLines(value) {
+  return inpTextLines(value).map(line => line.trim()).filter(Boolean);
+}
+function inpModifyItems(ci, ri) {
+  const row = scriptCases[ci] && scriptCases[ci].rows ? scriptCases[ci].rows[ri] : null;
+  if (!row) return [];
+  const targets = inpTargetLines(row[3]);
+  const values = inpValueLines(row[4]);
+  return targets.map((target, index) => ({
+    target,
+    value: values[index] == null ? "" : values[index],
+    index,
+  }));
+}
+function inpSelectionMeta(ci, ri, target) {
+  const state = inpPickerState[inpPickerKey(ci, ri)] || {};
+  return state.selectionMeta && state.selectionMeta[target]
+    ? state.selectionMeta[target]
+    : null;
+}
+function syncInpStepInputs(ci, ri) {
+  const row = scriptCases[ci] && scriptCases[ci].rows ? scriptCases[ci].rows[ri] : null;
+  if (!row) return;
+  const stepRow = document.querySelector(`.step-row[data-step-ci="${ci}"][data-step-ri="${ri}"]`);
+  if (!stepRow) return;
+  const targetInput = stepRow.querySelector(".target-input");
+  const valueInput = stepRow.querySelector(".value-input");
+  if (targetInput) targetInput.value = String(row[3] || "");
+  if (valueInput) valueInput.value = String(row[4] || "");
+}
+function setInpMainValues(ci, ri, value) {
+  const row = scriptCases[ci] && scriptCases[ci].rows ? scriptCases[ci].rows[ri] : null;
+  if (!row) return;
+  row[4] = value;
+  const values = inpValueLines(value);
+  const picker = findInpPicker(ci, ri);
+  if (!picker) return;
+  picker.querySelectorAll(".inp-selection-new").forEach(input => {
+    const index = Number(input.dataset.inpValueIndex);
+    input.value = values[index] == null ? "" : values[index];
+  });
+}
+function setInpModifyValue(ci, ri, index, value) {
+  const row = scriptCases[ci] && scriptCases[ci].rows ? scriptCases[ci].rows[ri] : null;
+  if (!row) return;
+  const values = inpValueLines(row[4]);
+  while (values.length <= index) values.push("");
+  values[index] = value;
+  row[4] = values.join("\n");
+  syncInpStepInputs(ci, ri);
+}
+function removeInpVariable(ci, ri, index) {
+  const row = scriptCases[ci] && scriptCases[ci].rows ? scriptCases[ci].rows[ri] : null;
+  if (!row) return;
+  const targets = inpTargetLines(row[3]);
+  const values = inpValueLines(row[4]);
+  const removed = targets[index];
+  if (removed == null) return;
+  targets.splice(index, 1);
+  if (index < values.length) values.splice(index, 1);
+  row[3] = targets.join("\n");
+  row[4] = values.join("\n");
+  const state = inpPickerState[inpPickerKey(ci, ri)] || {};
+  if (state.selectionMeta) {
+    const selectionMeta = { ...state.selectionMeta };
+    delete selectionMeta[removed];
+    updateInpPickerState(ci, ri, { selectionMeta, resolvedSelection: "", hydratingSelection: "" });
+  }
+  syncInpStepInputs(ci, ri);
+  refreshInpPicker(ci, ri);
+}
+function clearInpVariables(ci, ri) {
+  const row = scriptCases[ci] && scriptCases[ci].rows ? scriptCases[ci].rows[ri] : null;
+  if (!row) return;
+  row[3] = "";
+  row[4] = "";
+  updateInpPickerState(ci, ri, { selectionMeta: {}, resolvedSelection: "", hydratingSelection: "" });
+  syncInpStepInputs(ci, ri);
+  refreshInpPicker(ci, ri);
+}
 function setInpPickerField(ci, ri, field, value) {
   const k = inpPickerKey(ci, ri);
   inpPickerState[k] = { ...(inpPickerState[k] || {}), [field]: value };
 }
 function inpFieldMarkup(ci, ri, field, fields) {
-  const current = scriptCases[ci].rows[ri][field.index] ?? "";
+  const row = scriptCases[ci].rows[ri];
+  const current = row[field.index] ?? "";
   const required = field.required ? " required" : "";
   const cls = dynamicFieldClass(fields, field);
   const missing = field.required && !String(current).trim() ? " missing" : "";
   const label = esc(field.label || "参数");
   const ph = esc(field.placeholder || "");
+  const sourceInput = isFolderPrepAction(row[1]) && Number(field.index) === 3;
   let input;
   if (field.index === 2) {
     input = `<input type="text" value="${esc(current)}" placeholder="${ph}"${required} onchange="setCell(${ci},${ri},2,this.value)">`;
   } else if (field.role === "target") {
-    input = `<input type="text" class="target-input" value="${esc(current)}" placeholder="${ph}"${required} readonly>`;
+    input = `<textarea class="target-input" placeholder="${ph}"${required} readonly spellcheck="false">${esc(current)}</textarea>`;
+  } else if (field.role === "value" && row[1] === "modify_inp") {
+    input = `<textarea class="value-input" placeholder="${ph}"${required} oninput="setInpMainValues(${ci},${ri},this.value)" spellcheck="false">${esc(current)}</textarea>`;
   } else {
     const type = field.type === "number" ? "number" : "text";
     input = `<input type="${type}" value="${esc(current)}" placeholder="${ph}"${required} onchange="setCell(${ci},${ri},${field.index},this.value)">`;
   }
+  if (sourceInput) {
+    return `<div class="step-field ${cls}${missing}"><span class="mobile-label">${label}</span>`
+      + `<div class="field-with-browse">${input}<button type="button" class="source-browse" title="从当前项目 inputs 目录选择源输入卡" onclick="event.stopPropagation();pickScriptSourceInput(${ci},${ri})">浏览...</button></div></div>`;
+  }
   return `<label class="step-field ${cls}${missing}"><span class="mobile-label">${label}</span>${input}`
-    + (field.role === "target" ? `<span class="field-note">该值由输入卡检索结果自动填入</span>` : "")
+    + (field.role === "target" ? `<span class="field-note">每行一个变量定位；可在下方检索区连续添加或删除</span>` : "")
     + `</label>`;
+}
+async function pickScriptSourceInput(ci, ri) {
+  try {
+    if (!hasTauri) {
+      warn("当前不是桌面模式，无法打开系统文件选择器");
+      return;
+    }
+    const row = scriptCases[ci] && scriptCases[ci].rows ? scriptCases[ci].rows[ri] : null;
+    if (!row) return;
+    const picked = await invoke("pick_file", { kind: "input" });
+    if (!picked) return;
+    const relative = await projectRelativePath(picked, true);
+    const inputPath = String(relative.input_path || "").trim();
+    if (!inputPath) throw new Error("源输入卡必须位于当前项目 inputs 目录");
+    row[3] = inputPath;
+    warn("");
+    renderScript();
+  } catch (e) {
+    warn("选择源输入卡失败: " + (e && e.message ? e.message : e));
+  }
+}
+function inpResultLineNo(result) {
+  const raw = result && result.field_line_no;
+  if (raw !== "" && raw != null) {
+    const value = Number(raw);
+    if (Number.isFinite(value)) return value;
+  }
+  const fallback = Number(result && result.line_no);
+  return Number.isFinite(fallback) ? fallback : 0;
+}
+function inpResultGroupKey(result) {
+  return [
+    result.path || "",
+    result.profile || "",
+    result.card_id || "",
+    result.record_id || "",
+    result.line_no == null ? "" : String(result.line_no),
+    result.target_keyword || result.keyword || "",
+  ].join("\u0000");
+}
+function groupInpResults(results) {
+  const groups = [];
+  const byKey = new Map();
+  (results || []).forEach((result, index) => {
+    if (!result) return;
+    const key = inpResultGroupKey(result);
+    let group = byKey.get(key);
+    if (!group) {
+      group = { key, entries: [] };
+      byKey.set(key, group);
+      groups.push(group);
+    }
+    group.entries.push({ result, index });
+  });
+  return groups;
+}
+function inpResultRows(group) {
+  const rowsByLine = new Map();
+  (group.entries || []).forEach(entry => {
+    const line = inpResultLineNo(entry.result) || Number(entry.result.line_no) || 0;
+    if (!rowsByLine.has(line)) rowsByLine.set(line, []);
+    rowsByLine.get(line).push(entry);
+  });
+  return Array.from(rowsByLine, ([line, entries]) => ({
+    line,
+    entries: entries.sort((a, b) => Number(a.result.field) - Number(b.result.field)),
+  })).sort((a, b) => a.line - b.line);
+}
+function inpResultButtonMarkup(entry, selectedTargets) {
+  const r = entry.result;
+  const selected = selectedTargets && selectedTargets.has(String(r.target || "").trim());
+  const value = r.value == null ? "" : String(r.value);
+  const positional = r.profile === "positional_text";
+  const structured = r.profile === "structured_text" || r.profile === "json";
+  const variableProfile = positional || structured;
+  const cardLabel = variableProfile ? (r.record_id || r.target_keyword || r.keyword || "-") : (r.target_keyword || r.keyword || "-");
+  const description = r.description && r.description !== cardLabel ? ` · ${esc(r.description)}` : "";
+  const physicalLine = inpResultLineNo(r);
+  const logicalLine = Number(r.line_no);
+  const lineText = physicalLine && logicalLine && physicalLine !== logicalLine
+    ? `物理第 ${physicalLine} 行 / 逻辑第 ${logicalLine} 行`
+    : `第 ${physicalLine || logicalLine || "-"} 行`;
+  const meta = positional
+    ? `记录 ${esc(cardLabel)} · 字段 ${esc(r.field ?? "-")} · ${lineText}${description}`
+    : structured
+    ? `变量 ${esc(cardLabel)} · 字段 ${esc(r.field ?? "-")} · ${lineText}${description}`
+    : `卡 ${esc(r.card_id || "-")} · 标识 ${esc(cardLabel)} · 字段 ${esc(r.field ?? "-")} · ${lineText}`;
+  return `<button type="button" class="inp-result${selected ? " selected" : ""}" data-inp-result-index="${entry.index}" aria-pressed="${selected ? "true" : "false"}">`
+    + `<span class="inp-result-target">${esc(r.target || "")}</span>`
+    + `<span class="inp-result-meta">${meta}</span>`
+    + `<span class="inp-result-value">${value ? esc(value) : "-"}</span></button>`;
+}
+function inpMatrixMarkup(group, selectedTargets) {
+  const rows = inpResultRows(group);
+  if (rows.length <= 1) return "";
+  const first = group.entries[0].result;
+  const columns = Math.max(1, ...rows.map(row => row.entries.length));
+  const positional = first.profile === "positional_text";
+  const structured = first.profile === "structured_text" || first.profile === "json";
+  const identity = positional
+    ? `记录 ${first.record_id || "L" + (first.line_no || "-")}`
+    : structured
+    ? `变量 ${first.record_id || first.target_keyword || first.keyword || "-"}`
+    : `卡 ${first.card_id || "-"} · 标识 ${first.target_keyword || first.keyword || "-"}`;
+  const description = first.description && first.description !== first.record_id
+    ? `<div class="inp-matrix-desc">${esc(first.description)}</div>`
+    : "";
+  const columnHeaders = Array.from(
+    { length: columns },
+    (_, index) => `<th scope="col">列 ${index + 1}</th>`
+  ).join("");
+  const body = rows.map(row => {
+    const cells = [];
+    for (let index = 0; index < columns; index += 1) {
+      const entry = row.entries[index];
+      if (!entry) {
+        cells.push(`<td><div class="inp-matrix-empty">-</div></td>`);
+        continue;
+      }
+      const r = entry.result;
+      const value = r.value == null ? "" : String(r.value);
+      const fieldNo = r.field == null ? "-" : r.field;
+      const title = `${r.target || "字段"} · 当前值 ${value || "(空)"}`;
+      const selected = selectedTargets && selectedTargets.has(String(r.target || "").trim());
+      cells.push(`<td><button type="button" class="inp-matrix-cell${selected ? " selected" : ""}"`
+        + ` aria-pressed="${selected ? "true" : "false"}"`
+        + ` data-inp-result-index="${entry.index}" title="${esc(title)}">`
+        + `<span class="inp-matrix-value">${value ? esc(value) : "(空)"}</span>`
+        + `<span class="inp-matrix-field">字段 ${esc(fieldNo)}</span></button></td>`);
+    }
+    return `<tr><th scope="row">第 ${esc(row.line)} 行</th>${cells.join("")}</tr>`;
+  }).join("");
+  return `<div class="inp-matrix-card">
+    <div class="inp-matrix-head">
+      <div class="inp-matrix-title"><b>${esc(identity)}</b><span class="inp-matrix-meta">${rows.length} 行 × ${columns} 列，点击单元格选择变量</span></div>
+      ${description}
+    </div>
+    <div class="inp-matrix-scroll">
+      <table class="inp-matrix" aria-label="${esc(identity)} 参数矩阵">
+        <thead><tr><th scope="col">物理行</th>${columnHeaders}</tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+function inpResultsMarkup(results, selectedTargets) {
+  return groupInpResults(results).map(group => {
+    const matrix = inpMatrixMarkup(group, selectedTargets);
+    if (matrix) return matrix;
+    return group.entries.map(entry => inpResultButtonMarkup(entry, selectedTargets)).join("");
+  }).join("");
+}
+function inpSelectionMarkup(ci, ri) {
+  const items = inpModifyItems(ci, ri);
+  const itemHtml = items.length
+    ? items.map(item => {
+      const meta = inpSelectionMeta(ci, ri, item.target);
+      let current = "当前值待读取";
+      let currentClass = "";
+      if (meta && meta.resolved === false) {
+        current = "当前输入卡中未找到此定位";
+        currentClass = " missing";
+      } else if (meta) {
+        const value = meta.value == null || String(meta.value) === "" ? "(空)" : String(meta.value);
+        current = `当前值 <b>${esc(value)}</b>`;
+        if (meta.description) current += ` · ${esc(meta.description)}`;
+      }
+      return `<div class="inp-selection-item">
+        <span class="inp-selection-index">${item.index + 1}</span>
+        <span class="inp-selection-info">
+          <span class="inp-selection-target">${esc(item.target)}</span>
+          <span class="inp-selection-current${currentClass}">${current}</span>
+        </span>
+        <input type="text" class="inp-selection-new" data-inp-value-index="${item.index}"
+          value="${esc(item.value)}" placeholder="第 ${item.index + 1} 个变量新值"
+          aria-label="第 ${item.index + 1} 个变量新值" oninput="setInpModifyValue(${ci},${ri},${item.index},this.value)">
+        <button type="button" class="inp-selection-remove" title="移除第 ${item.index + 1} 个变量"
+          aria-label="移除第 ${item.index + 1} 个变量" onclick="removeInpVariable(${ci},${ri},${item.index})">&times;</button>
+      </div>`;
+    }).join("")
+    : `<div class="inp-selection-empty">尚未添加变量。检索后连续点击字段，即可在一个步骤中修改多个变量。</div>`;
+  return `<div class="inp-selection-head"><span>已选变量 <b>${items.length}</b></span>
+    ${items.length ? `<button type="button" class="inp-selection-clear" onclick="clearInpVariables(${ci},${ri})">清空</button>` : ""}</div>
+    <div class="inp-selection-list">${itemHtml}</div>`;
 }
 function inpPickerMarkup(ci, ri, fields) {
   const row = scriptCases[ci].rows[ri];
   const targetField = fields.find(f => f.role === "target");
   const selected = targetField ? String(row[targetField.index] || "") : "";
-  const target = selected.trim();
+  const selectedTargets = new Set(inpTargetLines(selected));
   const path = inpPickerPath(ci, ri);
   const query = inpPickerQuery(ci, ri);
   const state = inpPickerState[inpPickerKey(ci, ri)] || {};
   const results = inpPickerResults(ci, ri);
   const error = inpPickerError(ci, ri);
-  let match = null;
-  if (target) {
-    match = {
-      target,
-      value: state.seenValue ?? "",
-      line_no: state.line_no ?? "",
-      card_id: state.card_id ?? "",
-      record_id: state.record_id ?? "",
-      profile: state.profile ?? "",
-      keyword: state.keyword ?? "",
-      description: state.description ?? "",
-      target_keyword: state.target_keyword ?? state.keyword ?? "-",
-      field: state.field ?? "",
-    };
-  }
   const resultHtml = results.length
-    ? results.map((r, index) => {
-      const value = r && r.value != null ? String(r.value) : "";
-      const positional = r && r.profile === "positional_text";
-      const cardLabel = r ? (positional ? (r.record_id || "-") : (r.target_keyword || r.keyword || "-")) : "-";
-      const description = r && r.description ? ` · ${esc(r.description)}` : "";
-      const meta = r
-        ? (positional
-          ? `记录 ${esc(cardLabel)} · 字段 ${esc(r.field ?? "-")} · 第 ${esc(r.line_no ?? "-")} 行${description}`
-          : `卡 ${esc(r.card_id || "-")} · 标识 ${esc(cardLabel)} · 字段 ${esc(r.field ?? "-")} · 第 ${esc(r.line_no ?? "-")} 行`)
-        : "输入卡字段";
-      return `<button type="button" class="inp-result${r && r.target === target ? " selected" : ""}" data-inp-result-index="${index}">`
-        + `<span class="inp-result-target">${esc(r && r.target ? r.target : "")}</span>`
-        + `<span class="inp-result-meta">${meta}</span>`
-        + `<span class="inp-result-value">${value ? esc(value) : "-"}</span></button>`;
-    }).join("")
+    ? inpResultsMarkup(results, selectedTargets)
     : (state.loaded ? `<div class="inp-empty">${error ? esc(error) : (query ? "没有匹配变量" : "输入关键词后检索，或直接查看全部字段")}</div>` : "");
-  const currentValue = match && match.value != null && String(match.value) !== "" ? String(match.value) : "-";
-  const currentDescription = match && match.description ? `<br><span class="inp-picker-hint">${esc(match.description)}</span>` : "";
-  const current = match
-    ? `<div class="inp-picker-selected">已选定位 <b>${esc(match.target)}</b> · 输入卡当前值 <b>${esc(currentValue)}</b>${currentDescription}<br><span class="inp-picker-hint">上方“当前值”仅供核对；请在“新值（修改后）”中填写执行后的目标值，选择变量不会覆盖它。</span></div>`
-    : `<div class="inp-picker-selected">尚未选择变量。检索并点击字段后，定位会自动写入“变量定位”；新值由用户单独填写。</div>`;
   return `<div class="inp-picker" data-inp-ci="${ci}" data-inp-ri="${ri}">
     <div class="inp-picker-title">检索输入卡变量</div>
     <div class="inp-picker-row">
@@ -2845,8 +3180,8 @@ function inpPickerMarkup(ci, ri, fields) {
       <input type="text" class="inp-picker-query" value="${esc(query)}" placeholder="输入说明、记录、卡号或当前值，例如 过热器、L12 或 14e6" aria-label="变量检索关键词">
       <button type="button" class="inp-picker-search">检索</button>
     </div>
-    <div class="inp-picker-hint">路径可留空：将自动使用同一用例 folder_prep 的源输入卡，或 inputs 下的同名文件。检索会自动识别 RELAP5 卡格式与位置型格式，并显示字段、参数说明和当前值。点击结果只填“变量定位”，不会改动“新值”。</div>
-    ${current}
+    <div class="inp-picker-hint">路径可留空：将自动使用同一用例 folder_prep 的源输入卡，或 inputs 下的同名文件。检索会自动识别 RELAP5、位置型、结构化对象/矩阵与 JSON，并按物理行展示多行数组。连续点击结果可添加多个变量；定位与新值按行一一对应。</div>
+    ${inpSelectionMarkup(ci, ri)}
     <div class="inp-results">${resultHtml}</div>
   </div>`;
 }
@@ -2917,6 +3252,21 @@ function targetParts(target) {
       line_no: Number(match[3]),
     };
   }
+  match = text.match(/^([SJ])(\d+):(\d+)@(\d+):(.+)$/i);
+  if (match) {
+    let path = match[5];
+    try { path = decodeURIComponent(path); } catch (_) {}
+    return {
+      profile: match[1].toUpperCase() === "J" ? "json" : "structured_text",
+      card_id: "",
+      record_id: path,
+      keyword: path,
+      target_keyword: path,
+      field: Number(match[3]),
+      line_no: Number(match[2]),
+      source_line_no: Number(match[4]),
+    };
+  }
   match = text.match(/^(\d{3,8}):([^:@\s]+):(\d+)@(\d+)$/);
   if (!match) return null;
   return {
@@ -2929,8 +3279,11 @@ function targetParts(target) {
     line_no: Number(match[4]),
   };
 }
-function selectionFingerprint(ci, ri, target) {
-  return `${inpPickerPath(ci, ri)}|${String(target || "").trim()}`;
+function selectionFingerprint(ci, ri, targets, resolvedPath) {
+  const targetText = Array.isArray(targets)
+    ? targets.join("\n")
+    : String(targets || "").trim();
+  return `${resolvedPath == null ? inpPickerPath(ci, ri) : resolvedPath}|${targetText}`;
 }
 function findLegacyInpMatch(results, parts) {
   if (!parts || parts.keyword === "-") return null;
@@ -2946,44 +3299,60 @@ async function hydrateInpSelection(ci, ri) {
   if (!row) return;
   const targetField = actionFields(row[1]).find(f => f.role === "target");
   if (!targetField) return;
-  const target = String(row[targetField.index] || "").trim();
-  const parts = targetParts(target);
-  if (!parts) return;
+  const targets = inpTargetLines(row[targetField.index]);
+  if (!targets.length) return;
   const state = inpPickerState[inpPickerKey(ci, ri)] || {};
-  const fingerprint = selectionFingerprint(ci, ri, target);
-  if (state.resolvedTarget === fingerprint || state.hydratingTarget === fingerprint) return;
-  updateInpPickerState(ci, ri, { hydratingTarget: fingerprint });
+  const fingerprint = selectionFingerprint(ci, ri, targets);
+  if (state.resolvedSelection === fingerprint || state.hydratingSelection === fingerprint) return;
+  updateInpPickerState(ci, ri, { hydratingSelection: fingerprint });
   try {
-    const query = parts.profile === "positional_text"
-      ? `L${parts.line_no}`
-      : `${parts.card_id} ${parts.line_no}`;
-    const { data, path } = await searchInpWithCandidates(ci, ri, query);
-    const match = (data.results || []).find(r => r && r.target === target);
-    const legacyMatch = !match && parts.profile === "relap5"
-      ? findLegacyInpMatch(data.results, parts)
-      : null;
-    const resolved = match || legacyMatch;
+    const hydrated = await Promise.all(targets.map(async target => {
+      const parts = targetParts(target);
+      if (!parts) return { target, resolved: false, error: "定位格式无法识别" };
+      const query = parts.profile === "positional_text"
+        ? `L${parts.line_no}`
+        : parts.profile === "structured_text" || parts.profile === "json"
+        ? target
+        : `${parts.card_id} ${parts.line_no}`;
+      try {
+        const { data, path } = await searchInpWithCandidates(ci, ri, query);
+        const match = (data.results || []).find(r => r && r.target === target);
+        const legacyMatch = !match && parts.profile === "relap5"
+          ? findLegacyInpMatch(data.results, parts)
+          : null;
+        return { target, resolved: match || legacyMatch, path };
+      } catch (e) {
+        return { target, resolved: false, error: e && e.message ? e.message : String(e) };
+      }
+    }));
+    const previousMeta = (inpPickerState[inpPickerKey(ci, ri)] || {}).selectionMeta || {};
+    const selectionMeta = { ...previousMeta };
+    const errors = [];
+    let resolvedPath = inpPickerPath(ci, ri);
+    hydrated.forEach(item => {
+      if (item.path) resolvedPath = item.path;
+      if (item.resolved) {
+        selectionMeta[item.target] = {
+          resolved: true,
+          value: item.resolved.value == null ? "" : String(item.resolved.value),
+          description: item.resolved.description || "",
+        };
+      } else {
+        selectionMeta[item.target] = { resolved: false, value: "" };
+        if (item.error) errors.push(item.error);
+      }
+    });
+    const currentFingerprint = selectionFingerprint(ci, ri, targets, resolvedPath);
     updateInpPickerState(ci, ri, {
-      path,
-      seenValue: resolved && resolved.value != null ? String(resolved.value) : "",
-      line_no: resolved ? resolved.line_no : parts.line_no,
-      card_id: resolved ? (resolved.card_id || parts.card_id || "") : (parts.card_id || ""),
-      record_id: resolved ? (resolved.record_id || parts.record_id || "") : (parts.record_id || ""),
-      profile: resolved ? (resolved.profile || parts.profile) : parts.profile,
-      keyword: resolved ? (resolved.keyword || parts.keyword || "") : (parts.keyword || ""),
-      description: resolved ? (resolved.description || "") : "",
-      target_keyword: resolved
-        ? (resolved.target_keyword || resolved.keyword || "-")
-        : (parts.target_keyword || parts.keyword || "-"),
-      field: resolved ? resolved.field : parts.field,
-      selectedTarget: target,
-      resolvedTarget: fingerprint,
-      hydratingTarget: "",
-      error: resolved ? "" : "当前输入卡中未找到已有定位，请重新检索选择",
+      path: resolvedPath,
+      selectionMeta,
+      resolvedSelection: currentFingerprint,
+      hydratingSelection: "",
+      error: errors.length === targets.length ? errors[0] : "",
     });
   } catch (e) {
     updateInpPickerState(ci, ri, {
-      hydratingTarget: "",
+      hydratingSelection: "",
       error: e && e.message ? e.message : String(e),
     });
   }
@@ -2996,28 +3365,35 @@ function selectInpVariable(ci, ri, index) {
   const fields = actionFields(row[1]);
   const targetField = fields.find(f => f.role === "target");
   if (!targetField) return;
-  row[targetField.index] = result.target || "";
+  const target = String(result.target || "").trim();
+  if (!target) return;
+  const targets = inpTargetLines(row[targetField.index]);
+  const values = inpValueLines(row[4]);
+  if (!targets.includes(target)) {
+    targets.push(target);
+    values.push("");
+  }
+  row[targetField.index] = targets.join("\n");
+  row[4] = values.join("\n");
   stateForSelection(ci, ri, result);
-  const stepRow = document.querySelector(`.step-row[data-step-ci="${ci}"][data-step-ri="${ri}"]`);
-  const targetInput = stepRow ? stepRow.querySelector(".target-input") : null;
-  if (targetInput) targetInput.value = result.target || "";
+  syncInpStepInputs(ci, ri);
   refreshInpPicker(ci, ri);
 }
 function stateForSelection(ci, ri, result) {
-  const fingerprint = selectionFingerprint(ci, ri, result.target);
+  const target = String(result.target || "").trim();
+  const state = inpPickerState[inpPickerKey(ci, ri)] || {};
+  const selectionMeta = {
+    ...(state.selectionMeta || {}),
+    [target]: {
+      resolved: true,
+      value: result.value == null ? "" : String(result.value),
+      description: result.description || "",
+    },
+  };
   updateInpPickerState(ci, ri, {
-    seenValue: result.value == null ? "" : String(result.value),
-    line_no: result.line_no,
-    card_id: result.card_id,
-    record_id: result.record_id || "",
-    profile: result.profile || "",
-    keyword: result.keyword,
-    description: result.description || "",
-    target_keyword: result.target_keyword || result.keyword || "-",
-    field: result.field,
-    selectedTarget: result.target,
-    resolvedTarget: fingerprint,
-    hydratingTarget: "",
+    selectionMeta,
+    resolvedSelection: "",
+    hydratingSelection: "",
     error: "",
   });
 }
@@ -3050,7 +3426,7 @@ function bindInpPicker(picker) {
   queryInput.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); runSearch(); } };
   const results = picker.querySelector(".inp-results");
   if (results) {
-    results.querySelectorAll(".inp-result").forEach(btn => {
+    results.querySelectorAll(".inp-result, .inp-matrix-cell").forEach(btn => {
       btn.onclick = () => selectInpVariable(ci, ri, Number(btn.dataset.inpResultIndex));
     });
   }
@@ -3148,14 +3524,26 @@ async function saveAs() {
   }
 }
 
+function toggleCase(ci) {
+  const project = scriptCases[ci];
+  if (!project) return;
+  if (collapsedCases.has(project)) collapsedCases.delete(project);
+  else collapsedCases.add(project);
+  renderScript();
+}
 function renderScript() {
   normalizeScriptRows();
   const host = document.getElementById("scriptEditor");
   host.innerHTML = "";
   scriptCases.forEach((c, ci) => {
+    const collapsed = collapsedCases.has(c);
+    const bodyId = `case-body-${ci}`;
     const card = document.createElement("div");
-    card.className = "case-card";
-    let html = `<div class="case-head"><span class="label">用例:</span>
+    card.className = "case-card" + (collapsed ? " collapsed" : "");
+    let html = `<div class="case-head"><button type="button" class="case-toggle" onclick="toggleCase(${ci})"
+      aria-expanded="${collapsed ? "false" : "true"}" aria-controls="${bodyId}" title="${collapsed ? "展开测试用例" : "收起测试用例"}">
+      <span class="case-toggle-icon" aria-hidden="true">${collapsed ? "▸" : "▾"}</span>${collapsed ? "展开" : "收起"}</button>
+      <span class="label">用例:</span>
       <input type="text" value="${esc(c.no)}" style="width:200px" onchange="setCaseNo(${ci},this.value)">
       <div class="case-actions">
         <button type="button" onclick="copyCase(${ci})">复制用例</button>
@@ -3164,6 +3552,7 @@ function renderScript() {
       </div>
       <div class="spacer" style="flex:1"></div>
       <span class="hint" style="margin:0">${(c.rows || []).length} 个步骤</span></div>`;
+    html += `<div class="case-body" id="${bodyId}"${collapsed ? " hidden" : ""}>`;
     c.rows.forEach((row, ri) => {
       const fields = actionFields(row[1]);
       const columns = fields.filter(f => Number(f.index) !== 0);
@@ -3194,6 +3583,7 @@ function renderScript() {
       + `<button type="button" onclick="addStep(${ci},'modify_inp')" title="新增一步并预填输入卡名">＋ 修改输入卡</button>`
       + `<button type="button" onclick="addStep(${ci},'run_software')" title="新增一步并预填程序、软件类型、输入卡和输出名">＋ 运行软件</button>`
       + `<button type="button" onclick="addStep(${ci},'check_output')" title="新增一步并预填输出文件名">＋ 检查结果</button></div>`;
+    html += `</div>`;
     card.innerHTML = html;
     host.appendChild(card);
   });
@@ -3348,6 +3738,27 @@ function scriptIssues() {
           issues.push(`${no} 第 ${ri + 1} 步（${row[1]}）：${field.label || "参数"}未填写`);
         }
       });
+      if (row[1] === "modify_inp") {
+        const targetText = String(row[3] ?? "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+        const valueText = String(row[4] ?? "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+        const targets = inpTargetLines(targetText);
+        const values = inpValueLines(valueText);
+        const targetRows = inpTextLines(targetText);
+        const valueRows = inpValueLines(valueText);
+        while (targetRows.length && !targetRows[targetRows.length - 1].trim()) targetRows.pop();
+        if (targets.length !== values.length) {
+          issues.push(`${no} 第 ${ri + 1} 步（modify_inp）：变量定位有 ${targets.length} 个，新值有 ${values.length} 个，数量必须一致`);
+        }
+        if (targetRows.some(line => !line.trim())) {
+          issues.push(`${no} 第 ${ri + 1} 步（modify_inp）：变量定位不能包含空行`);
+        }
+        if (valueRows.some(line => !line)) {
+          issues.push(`${no} 第 ${ri + 1} 步（modify_inp）：新值不能包含空行`);
+        }
+        if (new Set(targets).size !== targets.length) {
+          issues.push(`${no} 第 ${ri + 1} 步（modify_inp）：变量定位不能重复`);
+        }
+      }
     });
   });
   return issues;

@@ -121,7 +121,10 @@ fn pick_file(kind: String) -> Option<String> {
     dlg = match kind.as_str() {
         "exec" => dlg.add_filter("Executable", &["exe"]),
         "input" => dlg
-            .add_filter("RELAP5 输入卡", &["i", "inp", "txt", "dat", "relap", "deck"])
+            .add_filter(
+                "输入卡 / JSON",
+                &["i", "inp", "txt", "dat", "relap", "deck", "json"],
+            )
             .add_filter("All Files", &["*"]),
         "output" => dlg
             .add_filter("RELAP5 输出文件", &["out", "outdta", "txt", "log", "dat"])

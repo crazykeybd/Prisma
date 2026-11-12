@@ -13,7 +13,11 @@ import subprocess
 import time
 from pathlib import Path
 
-from common.input_deck_parser import apply_input_edit
+from common.input_deck_parser import (
+    apply_input_edit,
+    modify_input_fields,
+    parse_field_edit_lines,
+)
 from common.run_context import ContextPathError, RunContext
 from common.results import (
     compare_points,
@@ -621,7 +625,7 @@ class KeyPrisma:
 
     @staticmethod
     def modify_inp(case_no, run_dir, object_name, key, value, context=None):
-        """按格式自动定位并原位修改输入卡字段。"""
+        """按格式自动定位并原位修改一个或多个输入卡字段。"""
         root = KeyPrisma._project_root(context)
         logger = init_log(root / "log")
         try:
@@ -632,14 +636,42 @@ class KeyPrisma:
         except (ContextPathError, ValueError) as exc:
             logger.error("[%s] modify_inp path rejected: %s", case_no, exc)
             return False
-        result = apply_input_edit(path, key, value)
-        if not result.get("ok"):
-            logger.error("[%s] modify_inp failed for %s target=%s: %s",
-                         case_no, path, key, result.get("error"))
+        try:
+            edits = parse_field_edit_lines(key, value)
+        except ValueError as exc:
+            logger.error("[%s] modify_inp mapping invalid: %s", case_no, exc)
             return False
+        if len(edits) == 1:
+            target, new_value = edits[0]
+            result = apply_input_edit(path, target, new_value)
+        else:
+            result = modify_input_fields(path, edits)
+        if not result.get("ok"):
+            logger.error("[%s] modify_inp failed for %s targets=%s: %s",
+                         case_no, path, result.get("target") or key,
+                         result.get("error"))
+            return False
+        if len(edits) > 1:
+            for item in result.get("results") or []:
+                logger.info(
+                    "[%s] modify_inp %s -> %s (%s -> %s)",
+                    case_no,
+                    item.get("target", ""),
+                    item.get("new_value", ""),
+                    item.get("old_value", ""),
+                    item.get("new_value", ""),
+                )
+            logger.info(
+                "[%s] modify_inp batch applied %s fields to %s",
+                case_no,
+                result.get("count", len(edits)),
+                path,
+            )
+            return True
         logger.info("[%s] modify_inp %s -> %s (%s -> %s)",
-                    case_no, key, value, result.get("old_value", ""),
-                    result.get("new_value", value))
+                    case_no, edits[0][0], edits[0][1],
+                    result.get("old_value", ""),
+                    result.get("new_value", edits[0][1]))
         return True
 
     @staticmethod

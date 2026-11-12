@@ -19,7 +19,7 @@ import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 from common.relap_input_parser import (
     _changed_preview,
@@ -34,6 +34,17 @@ from common.relap_input_parser import (
     apply_relap_input_edit,
     modify_relap_input_file,
     parse_relap_input_text,
+)
+from common.structured_input_parser import (
+    JSON_PROFILE,
+    STRUCTURED_TEXT_PROFILE,
+    exact_field as _exact_structured_field,
+    looks_like_json,
+    modify_structured_input_file,
+    parse_json_text,
+    parse_structured_text,
+    structured_text_score,
+    target_profile,
 )
 
 
@@ -63,6 +74,16 @@ FORMAT_PROFILES = {
         "format": "positional-text",
         "description_column": POSITIONAL_TEXT_PROFILE.description_column,
     },
+    STRUCTURED_TEXT_PROFILE: {
+        "key": STRUCTURED_TEXT_PROFILE,
+        "label": "结构化对象 + 矩阵",
+        "format": "structured-text",
+    },
+    JSON_PROFILE: {
+        "key": JSON_PROFILE,
+        "label": "JSON 对象 + 数组",
+        "format": "json",
+    },
 }
 
 _FORMAT_ALIASES = {
@@ -80,6 +101,16 @@ _FORMAT_ALIASES = {
     "sg": "positional_text",
     "generic": "positional_text",
     "generic_text": "positional_text",
+    "structured": STRUCTURED_TEXT_PROFILE,
+    "structured-text": STRUCTURED_TEXT_PROFILE,
+    "structured_text": STRUCTURED_TEXT_PROFILE,
+    "object": STRUCTURED_TEXT_PROFILE,
+    "object-text": STRUCTURED_TEXT_PROFILE,
+    "locust": STRUCTURED_TEXT_PROFILE,
+    "snap": STRUCTURED_TEXT_PROFILE,
+    "system": STRUCTURED_TEXT_PROFILE,
+    "json": JSON_PROFILE,
+    "application/json": JSON_PROFILE,
 }
 
 _POSITIONAL_TARGET_RE = re.compile(
@@ -106,7 +137,9 @@ def normalize_input_format(value: str | None) -> str | None:
     normalized = _FORMAT_ALIASES.get(text)
     if normalized is None:
         raise ValueError(
-            f"未知输入卡格式: {value}；可用格式为 relap5、positional_text"
+            "未知输入卡格式: "
+            f"{value}；可用格式为 relap5、positional_text、"
+            "structured_text、json"
         )
     return normalized
 
@@ -149,6 +182,9 @@ def detect_input_format(
     if explicit:
         return explicit
 
+    if looks_like_json(text, filename):
+        return JSON_PROFILE
+
     lines = [
         raw for _, raw, _, _ in _physical_lines(text) if raw.strip()
     ]
@@ -159,10 +195,13 @@ def detect_input_format(
     relap_markers = bool(re.search(r"(?im)^\s*\.\s*relap\s+end\s+card\b", text))
     relap_score = sum(bool(_RELAP_CARD_LINE_RE.match(line)) for line in lines)
     positional_score = _positional_score(text)
+    structured_score = structured_text_score(text)
     suffix = Path(filename).suffix.lower() if filename else ""
 
     if relap_markers:
         return "relap5"
+    if structured_score >= 2:
+        return STRUCTURED_TEXT_PROFILE
     if positional_score >= max(1, math.ceil(nonempty * 0.6)):
         if relap_score == 0 or positional_score > relap_score:
             return "positional_text"
@@ -181,9 +220,11 @@ def _profile_summary(result: dict[str, Any], input_format: str) -> dict[str, Any
     summary["profile"] = input_format
     summary["profile_label"] = profile["label"]
     summary["target_format"] = (
-        "L{行号}:{字段序号}@{行号}"
-        if input_format == POSITIONAL_TEXT_PROFILE.key
-        else "卡号:关键字:字段序号@源行号"
+        FORMAT_PROFILES[input_format].get("target_format")
+        or {
+            POSITIONAL_TEXT_PROFILE.key: "L{行号}:{字段序号}@{行号}",
+            "relap5": "卡号:关键字:字段序号@源行号",
+        }.get(input_format, "")
     )
     return result
 
@@ -388,6 +429,14 @@ def parse_input_text(
             text, filename=filename, encoding=encoding, path=path
         )
         return _profile_summary(result, "relap5")
+    if detected == STRUCTURED_TEXT_PROFILE:
+        return parse_structured_text(
+            text, filename=filename, encoding=encoding, path=path
+        )
+    if detected == JSON_PROFILE:
+        return parse_json_text(
+            text, filename=filename, encoding=encoding, path=path
+        )
     return _parse_positional_text(
         text, encoding=encoding, filename=filename, path=path
     )
@@ -478,6 +527,13 @@ def _entry_matches_query(
             if term not in targets:
                 return False
             continue
+        if (
+            input_format in {STRUCTURED_TEXT_PROFILE, JSON_PROFILE}
+            and target_profile(term) == input_format
+        ):
+            if term not in targets:
+                return False
+            continue
         if term not in haystack:
             return False
     return True
@@ -505,7 +561,21 @@ def _search_parsed(
     exact_field = (
         _exact_positional_field(terms)
         if input_format == POSITIONAL_TEXT_PROFILE.key
-        else None
+        else (
+            next(
+                (
+                    field_index
+                    for field_index in (
+                        _exact_structured_field(term, input_format)
+                        for term in terms
+                    )
+                    if field_index is not None
+                ),
+                None,
+            )
+            if input_format in {STRUCTURED_TEXT_PROFILE, JSON_PROFILE}
+            else None
+        )
     )
     results: list[dict[str, Any]] = []
 
@@ -519,14 +589,26 @@ def _search_parsed(
         if terms and not _entry_matches_query(entry, terms, input_format):
             continue
 
-        all_fields = search_all or input_format == POSITIONAL_TEXT_PROFILE.key
+        all_fields = search_all or input_format in {
+            POSITIONAL_TEXT_PROFILE.key,
+            STRUCTURED_TEXT_PROFILE,
+            JSON_PROFILE,
+        }
         indexes = list(range(len(fields))) if all_fields else [0]
         if exact_field is not None:
             indexes = [exact_field] if exact_field < len(fields) else []
         spans = entry.get("field_spans") or []
         field_lines = entry.get("field_line_nos") or []
+        field_targets = entry.get("field_targets") or []
         for index in indexes:
-            if input_format == POSITIONAL_TEXT_PROFILE.key:
+            stored_target = (
+                field_targets[index].get("target")
+                if index < len(field_targets)
+                else ""
+            )
+            if stored_target:
+                target = stored_target
+            elif input_format == POSITIONAL_TEXT_PROFILE.key:
                 target = f"{entry.get('record_id') or 'L' + str(entry['line_no'])}:{index + 1}@{entry['line_no']}"
             else:
                 target_keyword = (
@@ -898,6 +980,15 @@ def modify_input_file(
             expected_value=expected_value,
             apply=apply,
         )
+    elif detected in {STRUCTURED_TEXT_PROFILE, JSON_PROFILE}:
+        result = modify_structured_input_file(
+            p,
+            target,
+            value,
+            profile=detected,
+            expected_value=expected_value,
+            apply=apply,
+        )
     elif _RELAP_TARGET_RE.match(str(target or "")):
         result = modify_relap_input_file(
             p,
@@ -917,9 +1008,215 @@ def modify_input_file(
     result.setdefault("profile", detected)
     result.setdefault(
         "format",
-        "positional-text" if detected == POSITIONAL_TEXT_PROFILE.key else "relap5",
+        {
+            POSITIONAL_TEXT_PROFILE.key: "positional-text",
+            STRUCTURED_TEXT_PROFILE: "structured-text",
+            JSON_PROFILE: "json",
+        }.get(detected, "relap5"),
     )
     return result
+
+
+def parse_field_edit_lines(
+    targets: str,
+    values: str,
+) -> list[tuple[str, str]]:
+    """Parse parallel newline-separated target/value cells.
+
+    A single target and a single value keep the original one-field behavior.
+    Multiple targets are paired with values by line number.
+    """
+
+    def split_lines(raw: str, *, strip: bool) -> list[str]:
+        text = str(raw or "").replace("\r\n", "\n").replace("\r", "\n")
+        lines = text.split("\n")
+        while lines and lines[-1] == "":
+            lines.pop()
+        return [line.strip() if strip else line for line in lines]
+
+    target_lines = split_lines(targets, strip=True)
+    value_lines = split_lines(values, strip=False)
+    if not target_lines:
+        raise ValueError("至少需要一个变量定位")
+    if len(target_lines) != len(value_lines):
+        raise ValueError(
+            "变量定位与新值数量不一致："
+            f"定位 {len(target_lines)} 个，新值 {len(value_lines)} 个"
+        )
+    if any(not target for target in target_lines):
+        raise ValueError("变量定位不能有空行")
+    if any(not value for value in value_lines):
+        raise ValueError("新值不能有空行")
+
+    seen: set[str] = set()
+    edits: list[tuple[str, str]] = []
+    for index, (target, value) in enumerate(zip(target_lines, value_lines), 1):
+        if target in seen:
+            raise ValueError(f"第 {index} 个变量定位重复：{target}")
+        seen.add(target)
+        edits.append((target, value))
+    return edits
+
+
+def modify_input_fields(
+    path: str | Path,
+    edits: Iterable[tuple[str, str]],
+    *,
+    apply: bool = True,
+    input_format: str | None = None,
+    profile: str | None = None,
+) -> dict[str, Any]:
+    """Atomically modify multiple fields in one input deck.
+
+    Changes are first applied to a temporary sibling file. The real input deck
+    is replaced only after every target has been validated and the original
+    bytes are still unchanged.
+    """
+    p = Path(path)
+    if not p.is_file():
+        return {"ok": False, "error": f"输入卡不存在: {path}", "applied": False}
+
+    normalized: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for index, item in enumerate(edits, 1):
+        try:
+            target, value = item
+        except (TypeError, ValueError):
+            return {
+                "ok": False,
+                "applied": False,
+                "error": f"第 {index} 个修改项格式无效",
+            }
+        target_text = str(target or "").strip()
+        if not target_text:
+            return {
+                "ok": False,
+                "applied": False,
+                "error": f"第 {index} 个变量定位为空",
+            }
+        if target_text in seen:
+            return {
+                "ok": False,
+                "applied": False,
+                "error": f"第 {index} 个变量定位重复：{target_text}",
+                "target": target_text,
+            }
+        seen.add(target_text)
+        normalized.append((target_text, str(value)))
+
+    if not normalized:
+        return {"ok": False, "applied": False, "error": "没有可修改的变量"}
+    if len(normalized) == 1:
+        target, value = normalized[0]
+        return modify_input_file(
+            p,
+            target,
+            value,
+            apply=apply,
+            input_format=input_format,
+            profile=profile,
+        )
+
+    temp_path: Path | None = None
+    try:
+        detected, data, before_text = _detect_file_format(
+            p, input_format or profile
+        )
+        before_encoding = _decode_bytes(data)[1]
+        fd, temp_name = tempfile.mkstemp(
+            prefix=f".{p.stem}.prisma-edit-",
+            suffix=p.suffix,
+            dir=str(p.parent),
+        )
+        os.close(fd)
+        temp_path = Path(temp_name)
+        temp_path.write_bytes(data)
+
+        item_results: list[dict[str, Any]] = []
+        for index, (target, value) in enumerate(normalized, 1):
+            result = modify_input_file(
+                temp_path,
+                target,
+                value,
+                apply=True,
+                input_format=detected,
+            )
+            if not result.get("ok"):
+                raise ValueError(
+                    f"第 {index} 个变量修改失败（{target}）："
+                    f"{result.get('error') or '未知错误'}"
+                )
+            item_results.append(result)
+
+        # Reparse the fully edited deck and verify every field together.
+        for index, (target, value) in enumerate(normalized, 1):
+            check = modify_input_file(
+                temp_path,
+                target,
+                value,
+                expected_value=value,
+                apply=False,
+                input_format=detected,
+            )
+            if not check.get("ok"):
+                raise ValueError(
+                    f"第 {index} 个变量复核失败（{target}）："
+                    f"{check.get('error') or '未知错误'}"
+                )
+
+        candidate_data = temp_path.read_bytes()
+        candidate_text, candidate_encoding = _decode_bytes(candidate_data)
+        if candidate_encoding != before_encoding:
+            raise ValueError("批量修改后文件编码发生变化")
+        if len(candidate_text.splitlines()) != len(before_text.splitlines()):
+            raise ValueError("批量修改后物理行数发生变化")
+        if _newline_style(candidate_text) != _newline_style(before_text):
+            raise ValueError("批量修改后换行风格发生变化")
+        if p.read_bytes() != data:
+            raise ValueError("输入卡在修改过程中被其他进程更改，已取消写回")
+
+        common = {
+            "ok": True,
+            "path": str(p),
+            "profile": detected,
+            "format": {
+                POSITIONAL_TEXT_PROFILE.key: "positional-text",
+                STRUCTURED_TEXT_PROFILE: "structured-text",
+                JSON_PROFILE: "json",
+            }.get(detected, "relap5"),
+            "target": "\n".join(target for target, _ in normalized),
+            "targets": [target for target, _ in normalized],
+            "count": len(normalized),
+            "old_value": "\n".join(
+                str(result.get("old_value", "")) for result in item_results
+            ),
+            "new_value": "\n".join(
+                str(result.get("new_value", value))
+                for result, (_, value) in zip(item_results, normalized)
+            ),
+            "results": item_results,
+            "diff": _unified_text_diff(before_text, candidate_text, p),
+        }
+        if not apply:
+            return {**common, "applied": False, "dry_run": True}
+
+        _replace_bytes_atomic(p, candidate_data)
+        if p.read_bytes() != candidate_data:
+            raise RuntimeError("写回后文件内容与候选内容不一致")
+        return {**common, "applied": True, "dry_run": False}
+    except (OSError, UnicodeError, ValueError, RuntimeError) as exc:
+        return {
+            "ok": False,
+            "applied": False,
+            "error": str(exc),
+            "target": "\n".join(target for target, _ in normalized),
+        }
+    finally:
+        if temp_path is not None:
+            try:
+                temp_path.unlink(missing_ok=True)
+            except OSError:
+                pass
 
 
 def apply_input_edit(
@@ -946,12 +1243,16 @@ def apply_input_edit(
 
 __all__ = [
     "FORMAT_PROFILES",
+    "JSON_PROFILE",
     "POSITIONAL_TEXT_PROFILE",
+    "STRUCTURED_TEXT_PROFILE",
     "apply_input_edit",
     "detect_input_format",
+    "modify_input_fields",
     "modify_input_file",
     "modify_positional_input_file",
     "normalize_input_format",
+    "parse_field_edit_lines",
     "parse_input_data",
     "parse_input_file",
     "parse_input_text",
