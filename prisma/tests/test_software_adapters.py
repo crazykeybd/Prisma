@@ -865,22 +865,107 @@ class CheckOutputTests(unittest.TestCase):
                 "通过",
             )
 
-    def test_missing_result_row_fails_instead_of_being_ignored(self):
+    def test_result_table_uses_latest_check_for_same_key(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output = self._write_output(temp_dir, "pressure: 12.5\n")
+            context = self._context(temp_dir, "TC-RETRY")
+            artifact_dir = Path(temp_dir) / ".prisma"
+            artifact_dir.mkdir()
+            (artifact_dir / "checks.jsonl").write_text(
+                (
+                    '{"case_no": "TC-RETRY", "key": "pressure", '
+                    '"actual_value": null, "passed": false, '
+                    '"status": "error"}\n'
+                ),
+                encoding="utf-8",
+            )
+
+            self.assertFalse(
+                KeyPrisma.check_output(
+                    "TC-RETRY",
+                    temp_dir,
+                    output.name,
+                    "pressure",
+                    "10.0",
+                    context=context,
+                )
+            )
+
+            self._assert_result_row(
+                context,
+                "TC-RETRY",
+                "10.0",
+                "12.5",
+                "2.5",
+                "不通过",
+            )
+
+    def test_missing_result_row_is_appended(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             output = self._write_output(temp_dir, "keff: 1.00003\n")
             context = self._context(temp_dir, "TC-OTHER")
 
-            ok = KeyPrisma.check_output(
+            self.assertTrue(KeyPrisma.check_output(
                 "TC-MISSING",
                 temp_dir,
                 output.name,
                 "keff",
                 "1.00003",
                 context=context,
-            )
+            ))
 
-            self.assertFalse(ok)
+            workbook = load_workbook(
+                context.root / "data" / "test_check.xlsx",
+                data_only=True,
+            )
+            rows = list(workbook.active.iter_rows(values_only=True))
+            workbook.close()
+            self.assertEqual(rows[0][0], "编号")
+            self.assertEqual(rows[1][0], "TC-OTHER")
+            self.assertEqual(
+                rows[2],
+                ("TC-MISSING", "1.00003", "1.00003", "0", "通过"),
+            )
             release_log_file()
+
+    def test_locust_table_parser_reads_last_volume_block(self):
+        sample = (
+            "Time = 1 sec, dt = 0.01 sec, istep = 126\n"
+            "===> volume information:\n"
+            "  vol.no.     pressure    voidf\n"
+            "               (Pa)\n"
+            "      201       673968  1.00000\n"
+            "Time = 1000 sec, dt = 0.01 sec, istep = 100026\n"
+            "===> volume information:\n"
+            "  vol.no.     pressure    voidf\n"
+            "               (Pa)\n"
+            "      201       649026  1.00000\n"
+            "  vol.no.     pressure    voidf\n"
+            "               (Pa)\n"
+            "      301       612242  1.00000\n"
+            "===> junction information:\n"
+            "      201     20102     30101  1.00000\n"
+            "===> fwfc information:\n"
+            "      201       999999\n"
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output = self._write_output(temp_dir, sample)
+            context = self._context(temp_dir, "TC-LOCUST")
+            with patch("keywords.keyword_lib.write_result_to_check") as write_result:
+                ok = KeyPrisma.check_output(
+                    "TC-LOCUST",
+                    temp_dir,
+                    output.name,
+                    "P@002010000",
+                    "15.5",
+                    "locust",
+                    context=context,
+                )
+            release_log_file()
+
+        self.assertFalse(ok)
+        write_result.assert_called_once()
+        self.assertEqual(write_result.call_args.args[2], "649026")
 
     def test_nested_output_path_can_be_checked(self):
         with tempfile.TemporaryDirectory() as temp_dir:

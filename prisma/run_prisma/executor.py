@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import time
 from concurrent.futures import ThreadPoolExecutor, wait
 from datetime import datetime, timezone
@@ -66,6 +67,18 @@ def _case_run_dir(context: RunContext, commands: list[list[str]], case_no: str):
             / "test_cases"
             / safe_token(str(value or case_no))
         ).resolve()
+
+
+def _reset_case_run_dir(run_dir: Path, project_root: Path) -> None:
+    cases_root = (Path(project_root).resolve() / "test_cases").resolve()
+    target = Path(run_dir).resolve()
+    if target == cases_root or cases_root not in target.parents:
+        raise ValueError("运行目录必须是 test_cases 下的用例子目录")
+    if target.exists():
+        if not target.is_dir():
+            raise ValueError("运行目录路径不是文件夹")
+        shutil.rmtree(target)
+    target.mkdir(parents=True, exist_ok=True)
 
 
 def _failure_detail(run_dir: Path) -> str:
@@ -137,6 +150,7 @@ def _execute_case(
     run_dir = _case_run_dir(context, commands, case_no)
 
     try:
+        _reset_case_run_dir(run_dir, context.root if context else ROOT)
         reset_case_artifacts(run_dir)
     except Exception as exc:
         _write_case_execution(
@@ -147,7 +161,7 @@ def _execute_case(
             failure_type="execution",
             failed_step=1,
             failed_action="",
-            error_message=f"无法初始化运行证据: {exc}",
+            error_message=f"无法初始化运行目录: {exc}",
             commands_total=total,
             commands_completed=0,
             stopped=False,
@@ -160,7 +174,7 @@ def _execute_case(
             run_dir=str(run_dir),
             failure_type="execution",
             failed_step=1,
-            error_message=f"无法初始化运行证据: {exc}",
+            error_message=f"无法初始化运行目录: {exc}",
             commands_total=total,
         )
 

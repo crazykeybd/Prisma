@@ -8,10 +8,14 @@ import {
   Search,
   X,
 } from 'lucide-react'
+import type { LocustPlotCatalog } from '../lib/locust-plot'
 import type { RstpltCatalog } from '../lib/rstplt'
 
+export type BinaryPlotFormat = 'rstplt' | 'locust'
+
 interface RstpltImportDialogProps {
-  catalog: RstpltCatalog
+  catalog: RstpltCatalog | LocustPlotCatalog
+  format: BinaryPlotFormat
   mode?: 'import' | 'reselect'
   initialSelectedIds?: string[]
   busy: boolean
@@ -31,15 +35,30 @@ function formatFileSize(bytes: number) {
   return `${(bytes / 1024 ** 3).toFixed(2)} GB`
 }
 
-function recommendedVariables(catalog: RstpltCatalog) {
-  return catalog.variables
-    .filter((variable) => !variable.isTime)
+function recommendedVariables(
+  catalog: RstpltCatalog | LocustPlotCatalog,
+  format: BinaryPlotFormat,
+) {
+  const plottable = catalog.variables.filter(
+    (variable) => !variable.isTime,
+  )
+  const candidates =
+    format === 'locust'
+      ? plottable.filter(
+          (variable) =>
+            !['tstep', 'dt', 'dtcrnt'].includes(
+              variable.alpha.toLowerCase(),
+            ),
+        )
+      : plottable
+  return (candidates.length > 0 ? candidates : plottable)
     .slice(0, 2)
     .map((variable) => variable.id)
 }
 
 export function RstpltImportDialog({
   catalog,
+  format,
   mode = 'import',
   initialSelectedIds = [],
   busy,
@@ -47,6 +66,9 @@ export function RstpltImportDialog({
   onCancel,
   onConfirm,
 }: RstpltImportDialogProps) {
+  const formatName = format === 'locust' ? 'LOCUST' : 'RSTPLT'
+  const formatDescription =
+    format === 'locust' ? 'LOCUST 二进制数据' : 'RELAP5 二进制数据'
   const plottableVariables = useMemo(
     () => catalog.variables.filter((variable) => !variable.isTime),
     [catalog.variables],
@@ -65,7 +87,7 @@ export function RstpltImportDialog({
       new Set(
         mode === 'reselect' && savedSelection.length > 0
           ? savedSelection
-          : recommendedVariables(catalog),
+          : recommendedVariables(catalog, format),
       ),
   )
 
@@ -124,12 +146,12 @@ export function RstpltImportDialog({
           </span>
           <div className="rstplt-dialog-title">
             <span className="section-kicker">
-              {mode === 'reselect' ? '已导入数据' : 'RELAP5 二进制数据'}
+              {mode === 'reselect' ? '已导入数据' : formatDescription}
             </span>
             <h2 id="rstplt-dialog-title">
               {mode === 'reselect'
-                ? '重新选择 RSTPLT 曲线'
-                : '选择 RSTPLT 曲线'}
+                ? `重新选择 ${formatName} 曲线`
+                : `选择 ${formatName} 曲线`}
             </h2>
             <p title={catalog.fileName}>
               <span>{catalog.fileName}</span>
@@ -157,13 +179,13 @@ export function RstpltImportDialog({
             <strong>{formatCount(catalog.recordCount)}</strong>
           </div>
           <div>
-            <span>重启段</span>
+            <span>{format === 'locust' ? '数据段' : '重启段'}</span>
             <strong>{formatCount(catalog.segments.length)}</strong>
           </div>
           <div className="rstplt-summary-wide">
             <span>文件信息</span>
             <strong title={`${catalog.programId} ${catalog.fileDate}`}>
-              {catalog.programId || 'RELAP5'}
+              {catalog.programId || formatName}
               <small>{catalog.problemTypeName}</small>
             </strong>
           </div>
@@ -178,7 +200,7 @@ export function RstpltImportDialog({
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="搜索变量名或编号"
-              aria-label="搜索 RSTPLT 变量"
+              aria-label={`搜索 ${formatName} 变量`}
               disabled={busy}
             />
           </label>
@@ -191,7 +213,7 @@ export function RstpltImportDialog({
                   new Set(
                     mode === 'reselect' && savedSelection.length > 0
                       ? savedSelection
-                      : recommendedVariables(catalog),
+                      : recommendedVariables(catalog, format),
                   ),
                 )
               }}
@@ -229,11 +251,16 @@ export function RstpltImportDialog({
           <div className="rstplt-axis-note">
             <DatabaseZap size={15} />
             <span>
-              横轴使用 plotrec 内的 <code>time</code>，曲线按重启段自动合并
+              横轴使用 plotrec 内的 <code>time</code>，曲线按
+              {format === 'locust' ? '数据段' : '重启段'}自动合并
             </span>
           </div>
 
-          <div className="rstplt-variable-list" role="group" aria-label="RSTPLT 变量">
+          <div
+            className="rstplt-variable-list"
+            role="group"
+            aria-label={`${formatName} 变量`}
+          >
             {filteredVariables.map((variable) => {
               const checked = selected.has(variable.id)
               return (

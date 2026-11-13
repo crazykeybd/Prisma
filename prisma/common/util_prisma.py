@@ -175,10 +175,8 @@ def write_result_to_check(
                 target_row = r
                 break
         if target_row is None:
-            wb.close()
-            raise ValueError(
-                f"check table has no row for case number: {case_no}"
-            )
+            target_row = ws.max_row + 1
+            ws.cell(target_row, no_col).value = str(case_no).strip()
         ws.cell(target_row, expected_col).value = expected_value
         ws.cell(target_row, actual_col).value = value
         ws.cell(target_row, deviation_col).value = deviation

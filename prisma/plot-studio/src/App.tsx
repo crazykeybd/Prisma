@@ -40,6 +40,7 @@ import { PlotCanvas } from './components/PlotCanvas'
 import { PlotDataDialog } from './components/PlotDataDialog'
 import type { PlotDataSelection } from './components/PlotDataDialog'
 import { RstpltImportDialog } from './components/RstpltImportDialog'
+import type { BinaryPlotFormat } from './components/RstpltImportDialog'
 import {
   SERIES_COLORS,
   createSampleDataset,
@@ -57,6 +58,13 @@ import {
   sniffRstpltFile,
 } from './lib/rstplt'
 import type { RstpltCatalog } from './lib/rstplt'
+import {
+  isLocustPlotFilename,
+  loadLocustPlotDataset,
+  scanLocustPlotFile,
+  sniffLocustPlotFile,
+} from './lib/locust-plot'
+import type { LocustPlotCatalog } from './lib/locust-plot'
 import {
   derivativePoints,
   fftMagnitude,
@@ -154,24 +162,41 @@ interface Notice {
   tone: 'info' | 'success' | 'error'
 }
 
-interface RstpltImportState {
-  file: File
-  catalog: RstpltCatalog
-  mode: 'import' | 'reselect'
-  datasetId: string | null
-  initialSelectedIds: string[]
-}
+type BinaryImportState =
+  | {
+      file: File
+      format: 'rstplt'
+      catalog: RstpltCatalog
+      mode: 'import' | 'reselect'
+      datasetId: string | null
+      initialSelectedIds: string[]
+    }
+  | {
+      file: File
+      format: 'locust'
+      catalog: LocustPlotCatalog
+      mode: 'import' | 'reselect'
+      datasetId: string | null
+      initialSelectedIds: string[]
+    }
 
-interface RstpltSourceState {
+interface BinarySourceState {
   file: File
-  catalog: RstpltCatalog
+  format: BinaryPlotFormat
+  catalog: RstpltCatalog | LocustPlotCatalog
   selectedVariableIds: string[]
 }
 
 interface ImportTask {
   fileName: string
+  format: BinaryPlotFormat
   phase: 'scan' | 'load'
   progress: number
+}
+
+interface BinaryQueueEntry {
+  file: File
+  format: BinaryPlotFormat
 }
 
 function createProject(): ProjectState {
@@ -245,14 +270,18 @@ function mergeImportedDatasets(
     : [...current.datasets, ...imported]
 }
 
-function normalizeRstpltSelection(
-  catalog: RstpltCatalog,
+function normalizeBinarySelection(
+  catalog: RstpltCatalog | LocustPlotCatalog,
   variableIds: string[],
 ) {
   const selected = new Set(variableIds)
   return catalog.variables
     .filter((variable) => !variable.isTime && selected.has(variable.id))
     .map((variable) => variable.id)
+}
+
+function binaryFormatName(format: BinaryPlotFormat) {
+  return format === 'locust' ? 'LOCUST' : 'RSTPLT'
 }
 
 function App() {
@@ -267,16 +296,16 @@ function App() {
   )
   const [isPlotDataDialogOpen, setIsPlotDataDialogOpen] = useState(false)
   const [isExportOpen, setIsExportOpen] = useState(false)
-  const [rstpltImport, setRstpltImport] =
-    useState<RstpltImportState | null>(null)
+  const [binaryImport, setBinaryImport] =
+    useState<BinaryImportState | null>(null)
   const [importTask, setImportTask] = useState<ImportTask | null>(null)
   const plotRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const projectInputRef = useRef<HTMLInputElement>(null)
   const noticeTimerRef = useRef<number | null>(null)
-  const rstpltQueueRef = useRef<File[]>([])
-  const rstpltOpeningRef = useRef(false)
-  const rstpltSourcesRef = useRef(new Map<string, RstpltSourceState>())
+  const binaryQueueRef = useRef<BinaryQueueEntry[]>([])
+  const binaryOpeningRef = useRef(false)
+  const binarySourcesRef = useRef(new Map<string, BinarySourceState>())
 
   const activeDataset =
     project.datasets.find((dataset) => dataset.id === project.activeDatasetId) ??
@@ -381,17 +410,21 @@ function App() {
     if (validFiles.length === 0) return
 
     const regularFiles: File[] = []
-    const rstpltFiles: File[] = []
+    const binaryFiles: BinaryQueueEntry[] = []
     for (const file of validFiles) {
       const extension = file.name.split('.').pop()?.toLowerCase()
       if (isRstpltFilename(file.name)) {
-        rstpltFiles.push(file)
+        binaryFiles.push({ file, format: 'rstplt' })
+      } else if (isLocustPlotFilename(file.name)) {
+        binaryFiles.push({ file, format: 'locust' })
       } else if (
         ['csv', 'tsv', 'txt', 'dat', 'json'].includes(extension ?? '')
       ) {
         regularFiles.push(file)
       } else if (await sniffRstpltFile(file)) {
-        rstpltFiles.push(file)
+        binaryFiles.push({ file, format: 'rstplt' })
+      } else if (await sniffLocustPlotFile(file)) {
+        binaryFiles.push({ file, format: 'locust' })
       } else {
         regularFiles.push(file)
       }
@@ -408,91 +441,132 @@ function App() {
       }
     }
 
-    if (rstpltFiles.length > 0) {
-      rstpltQueueRef.current.push(...rstpltFiles)
-      void startNextRstpltImport()
+    if (binaryFiles.length > 0) {
+      binaryQueueRef.current.push(...binaryFiles)
+      void startNextBinaryImport()
     }
   }
 
-  async function startNextRstpltImport() {
-    if (rstpltOpeningRef.current) return
-    const file = rstpltQueueRef.current.shift()
-    if (!file) return
+  async function startNextBinaryImport() {
+    if (binaryOpeningRef.current) return
+    const entry = binaryQueueRef.current.shift()
+    if (!entry) return
 
-    rstpltOpeningRef.current = true
-    setImportTask({ fileName: file.name, phase: 'scan', progress: 0 })
+    const { file, format } = entry
+    const formatName = binaryFormatName(format)
+    binaryOpeningRef.current = true
+    setImportTask({
+      fileName: file.name,
+      format,
+      phase: 'scan',
+      progress: 0,
+    })
     try {
-      const catalog = await scanRstpltFile(file, (done, total) => {
+      const onProgress = (done: number, total: number) => {
         setImportTask({
           fileName: file.name,
+          format,
           phase: 'scan',
           progress: total > 0 ? Math.min(1, done / total) : 0,
         })
-      })
-      if (!catalog.variables.some((variable) => !variable.isTime)) {
-        throw new Error('RSTPLT 文件中没有 time 之外的可绘制变量。')
       }
-      setRstpltImport({
-        file,
-        catalog,
-        mode: 'import',
-        datasetId: null,
-        initialSelectedIds: [],
-      })
+      const catalog =
+        format === 'rstplt'
+          ? await scanRstpltFile(file, onProgress)
+          : await scanLocustPlotFile(file, onProgress)
+      if (!catalog.variables.some((variable) => !variable.isTime)) {
+        throw new Error(
+          `${formatName} 文件中没有 time 之外的可绘制变量。`,
+        )
+      }
+      setBinaryImport(
+        format === 'rstplt'
+          ? {
+              file,
+              format,
+              catalog,
+              mode: 'import',
+              datasetId: null,
+              initialSelectedIds: [],
+            }
+          : {
+              file,
+              format,
+              catalog,
+              mode: 'import',
+              datasetId: null,
+              initialSelectedIds: [],
+            },
+      )
     } catch (error) {
       notify(
-        error instanceof Error ? error.message : 'RSTPLT 文件扫描失败。',
+        error instanceof Error
+          ? error.message
+          : `${formatName} 文件扫描失败。`,
         'error',
       )
-      rstpltOpeningRef.current = false
-      window.setTimeout(() => void startNextRstpltImport(), 80)
+      binaryOpeningRef.current = false
+      window.setTimeout(() => void startNextBinaryImport(), 80)
     } finally {
       setImportTask(null)
     }
   }
 
-  function finishRstpltImport() {
-    setRstpltImport(null)
+  function finishBinaryImport() {
+    setBinaryImport(null)
     setImportTask(null)
-    rstpltOpeningRef.current = false
-    window.setTimeout(() => void startNextRstpltImport(), 0)
+    binaryOpeningRef.current = false
+    window.setTimeout(() => void startNextBinaryImport(), 0)
   }
 
-  async function confirmRstpltImport(variableIds: string[]) {
-    const pending = rstpltImport
+  async function confirmBinaryImport(variableIds: string[]) {
+    const pending = binaryImport
     if (!pending) return
 
-    const selectedVariableIds = normalizeRstpltSelection(
+    const selectedVariableIds = normalizeBinarySelection(
       pending.catalog,
       variableIds,
     )
+    const formatName = binaryFormatName(pending.format)
     setImportTask({
       fileName: pending.file.name,
+      format: pending.format,
       phase: 'load',
       progress: 0,
     })
     try {
-      const dataset = await loadRstpltDataset(
-        pending.file,
-        pending.catalog,
-        selectedVariableIds,
-        (done, total) => {
-          setImportTask({
-            fileName: pending.file.name,
-            phase: 'load',
-            progress: total > 0 ? Math.min(1, done / total) : 0,
-          })
-        },
-      )
+      const onProgress = (done: number, total: number) => {
+        setImportTask({
+          fileName: pending.file.name,
+          format: pending.format,
+          phase: 'load',
+          progress: total > 0 ? Math.min(1, done / total) : 0,
+        })
+      }
+      const dataset =
+        pending.format === 'rstplt'
+          ? await loadRstpltDataset(
+              pending.file,
+              pending.catalog,
+              selectedVariableIds,
+              onProgress,
+            )
+          : await loadLocustPlotDataset(
+              pending.file,
+              pending.catalog,
+              selectedVariableIds,
+              onProgress,
+            )
 
       if (pending.mode === 'reselect' && pending.datasetId) {
         const reselectDatasetId = pending.datasetId
         const source = {
           file: pending.file,
+          format: pending.format,
           catalog: pending.catalog,
           selectedVariableIds,
         }
-        rstpltSourcesRef.current.set(reselectDatasetId, source)
+        binarySourcesRef.current.set(reselectDatasetId, source)
         setProject((current) => {
           const previous = current.datasets.find(
             (item) => item.id === reselectDatasetId,
@@ -542,8 +616,9 @@ function App() {
           'success',
         )
       } else {
-        rstpltSourcesRef.current.set(dataset.id, {
+        binarySourcesRef.current.set(dataset.id, {
           file: pending.file,
+          format: pending.format,
           catalog: pending.catalog,
           selectedVariableIds,
         })
@@ -562,17 +637,19 @@ function App() {
           },
         }))
         notify(
-          `已从 RSTPLT 读取 ${dataset.rows.toLocaleString(
+          `已从 ${formatName} 读取 ${dataset.rows.toLocaleString(
             'zh-CN',
           )} 个时间点、${dataset.yColumns.length} 条曲线。`,
           'success',
         )
       }
-      finishRstpltImport()
+      finishBinaryImport()
     } catch (error) {
       setImportTask(null)
       notify(
-        error instanceof Error ? error.message : 'RSTPLT 数据读取失败。',
+        error instanceof Error
+          ? error.message
+          : `${formatName} 数据读取失败。`,
         'error',
       )
     }
@@ -597,15 +674,27 @@ function App() {
 
   function openPlotDataSelector() {
     if (!activeDataset) return
-    const source = rstpltSourcesRef.current.get(activeDataset.id)
+    const source = binarySourcesRef.current.get(activeDataset.id)
     if (source) {
-      setRstpltImport({
-        file: source.file,
-        catalog: source.catalog,
-        mode: 'reselect',
-        datasetId: activeDataset.id,
-        initialSelectedIds: source.selectedVariableIds,
-      })
+      setBinaryImport(
+        source.format === 'rstplt'
+          ? {
+              file: source.file,
+              format: source.format,
+              catalog: source.catalog as RstpltCatalog,
+              mode: 'reselect',
+              datasetId: activeDataset.id,
+              initialSelectedIds: source.selectedVariableIds,
+            }
+          : {
+              file: source.file,
+              format: source.format,
+              catalog: source.catalog as LocustPlotCatalog,
+              mode: 'reselect',
+              datasetId: activeDataset.id,
+              initialSelectedIds: source.selectedVariableIds,
+            },
+      )
       return
     }
     setIsPlotDataDialogOpen(true)
@@ -682,7 +771,7 @@ function App() {
             : current.activeDatasetId,
       }
     })
-    rstpltSourcesRef.current.delete(datasetId)
+    binarySourcesRef.current.delete(datasetId)
     notify('数据源已移除。')
   }
 
@@ -839,7 +928,7 @@ function App() {
         ) {
           throw new Error('不是有效的 Plot Workbench 项目文件。')
         }
-        rstpltSourcesRef.current.clear()
+        binarySourcesRef.current.clear()
         setProject(parsed)
         notify('项目已打开。', 'success')
       })
@@ -1739,7 +1828,7 @@ function App() {
         <div className="drop-overlay">
           <Upload size={32} />
           <strong>释放文件以导入数据</strong>
-          <span>CSV、TSV、TXT、JSON、RSTPLT</span>
+          <span>CSV、TSV、TXT、JSON、RSTPLT、LOCUST PLOT</span>
         </div>
       )}
 
@@ -1755,7 +1844,9 @@ function App() {
               <LoaderCircle size={22} />
             </span>
             <div>
-              <strong id="rstplt-scan-title">正在扫描 RSTPLT</strong>
+              <strong id="rstplt-scan-title">
+                正在扫描 {binaryFormatName(importTask.format)}
+              </strong>
               <span title={importTask.fileName}>{importTask.fileName}</span>
             </div>
             <div className="rstplt-progress" aria-hidden="true">
@@ -1772,18 +1863,19 @@ function App() {
         </div>
       )}
 
-      {rstpltImport && (
+      {binaryImport && (
         <RstpltImportDialog
-          key={`${rstpltImport.mode}-${rstpltImport.datasetId ?? 'new'}-${rstpltImport.file.name}-${rstpltImport.file.lastModified}-${rstpltImport.catalog.fileSize}`}
-          catalog={rstpltImport.catalog}
-          mode={rstpltImport.mode}
-          initialSelectedIds={rstpltImport.initialSelectedIds}
+          key={`${binaryImport.format}-${binaryImport.mode}-${binaryImport.datasetId ?? 'new'}-${binaryImport.file.name}-${binaryImport.file.lastModified}-${binaryImport.catalog.fileSize}`}
+          catalog={binaryImport.catalog}
+          format={binaryImport.format}
+          mode={binaryImport.mode}
+          initialSelectedIds={binaryImport.initialSelectedIds}
           busy={importTask?.phase === 'load'}
           progress={
             importTask?.phase === 'load' ? importTask.progress : 0
           }
-          onCancel={finishRstpltImport}
-          onConfirm={(variableIds) => void confirmRstpltImport(variableIds)}
+          onCancel={finishBinaryImport}
+          onConfirm={(variableIds) => void confirmBinaryImport(variableIds)}
         />
       )}
 
@@ -1806,7 +1898,7 @@ function App() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".csv,.tsv,.txt,.dat,.json,.rstplt,.rstrt,text/csv,text/plain,application/json,application/octet-stream"
+        accept=".csv,.tsv,.txt,.dat,.json,.rstplt,.rstrt,.plot,.locust,text/csv,text/plain,application/json,application/octet-stream,*/*"
         multiple
         hidden
         onChange={handleFileInput}

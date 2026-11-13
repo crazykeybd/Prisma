@@ -241,6 +241,12 @@ def _stage_input_cards(
     """Stage input cards last so they override files copied from ``bin/``."""
     staged = {"input.txt": input_src}
     primary = Path(input_name).name
+    declared_inputs = list(declared_inputs)
+    declared_markers = {name.casefold() for name in declared_inputs}
+    if declared_inputs and primary.casefold() not in declared_markers:
+        # A script-selected card replaces the registered primary card, while
+        # registered auxiliary cards are still staged.
+        declared_inputs = declared_inputs[1:]
     if primary.casefold() != "input.txt":
         shutil.copy2(input_src, out_dir / primary)
         staged[primary.casefold()] = input_src
@@ -874,7 +880,7 @@ class KeyPrisma:
 
         if check_file is not None:
             try:
-                existing_checks = [
+                all_existing_checks = [
                     item
                     for item in read_jsonl(
                         run_path / ".prisma" / "checks.jsonl"
@@ -882,8 +888,14 @@ class KeyPrisma:
                     if str(item.get("case_no") or "").strip()
                     == str(case_no).strip()
                 ]
+                latest_by_key = {}
+                for item in all_existing_checks:
+                    marker = str(item.get("key") or "").strip().casefold()
+                    latest_by_key[marker] = item
+                current_marker = str(key or "").strip().casefold()
+                latest_by_key.pop(current_marker, None)
                 result_records = [
-                    *existing_checks,
+                    *latest_by_key.values(),
                     {
                         "case_no": str(case_no),
                         "key": str(key or ""),

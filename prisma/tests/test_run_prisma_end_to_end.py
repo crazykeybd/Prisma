@@ -203,6 +203,22 @@ class CliEndToEndTests(unittest.TestCase):
             ),
         )
 
+    def test_case_run_dir_is_cleared_before_execution(self):
+        write_project(self.root)
+        run_dir = self.root / "test_cases" / RUN_DIR
+        old_results = run_dir / "old-results" / "old.dat"
+        old_results.parent.mkdir(parents=True)
+        old_results.write_text("stale result", encoding="utf-8")
+        old_screen = run_dir / "old-screen.txt"
+        old_screen.write_text("stale screen", encoding="utf-8")
+
+        exit_code, _, _ = self._main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertFalse(old_results.exists())
+        self.assertFalse(old_screen.exists())
+        self.assertTrue((run_dir / "outdta").is_file())
+
     def test_comparison_failure_returns_one_and_keeps_reports(self):
         write_project(self.root, expected="Input processing did not complete")
 
@@ -338,6 +354,32 @@ class ApiRunStatusTests(unittest.TestCase):
         self.assertIn("results_json", payload["reports"])
         self.assertIn("junit", payload["reports"])
         self.assertIn("charts", payload["reports"])
+
+    def test_status_distinguishes_comparison_failure_from_interruption(self):
+        write_project(
+            self.project.root,
+            expected="Input processing did not complete",
+        )
+
+        ok, message = server.start_run(
+            "data/test_data.xlsx",
+            "data/test_check.xlsx",
+            "",
+            "simulate",
+            1,
+        )
+        self.assertTrue(ok, message)
+        self._wait_for_run()
+
+        self.assertEqual(self.state["summary"], {CASE_NO: False})
+        self.assertEqual(self.state["exit_code"], 1)
+        summary = self.state["execution_summary"]
+        self.assertTrue(summary["comparison_failed"])
+        self.assertFalse(summary["execution_failed"])
+        outcome = summary["outcomes"][CASE_NO]
+        self.assertEqual(outcome["failure_type"], "comparison")
+        self.assertEqual(outcome["failed_action"], "check_output")
+        self.assertFalse(outcome["stopped"])
 
 
 if __name__ == "__main__":

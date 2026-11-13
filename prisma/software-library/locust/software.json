@@ -16,6 +16,7 @@
   "support_files": [],
   "input_filename": "input.i",
   "output_filename": "output.txt",
+  "output_parser": "locust",
   "timeout_sec": 1800,
   "version": "1.4",
   "executable": "bin/LOCUST1.4.exe",

@@ -7,7 +7,8 @@
   :root {
     --bg:#eef2f6; --nav:#132d49; --nav2:#1b3c5d; --acc:#1670d8; --acc2:#0f5fba;
     --panel:#fff; --line:#dce3eb; --line-soft:#eaf0f5; --fg:#202934; --dim:#68778a;
-    --ok:#188a50; --ok-bg:#e9f7f0; --bad:#d13d46; --bad-bg:#fff0f1;
+    --ok:#188a50; --ok-bg:#e9f7f0; --warn:#a45b00; --warn-bg:#fff7e8;
+    --bad:#d13d46; --bad-bg:#fff0f1;
     --shadow:0 1px 2px rgba(20,42,66,.035);
   }
   * { box-sizing:border-box; }
@@ -71,7 +72,10 @@
   tbody tr:hover { background:#fafcff; }
   td.center, th.center { text-align:center; }
   .status-wait { color:var(--dim); } .status-run { color:var(--acc); font-weight:600; }
-  .status-ok { color:var(--ok); font-weight:600; } .status-bad { color:var(--bad); font-weight:600; }
+  .status-ok { color:var(--ok); font-weight:600; } .status-warn { color:var(--warn); font-weight:600; }
+  .status-bad { color:var(--bad); font-weight:600; }
+  .failure-detail { max-width:520px; color:var(--dim); font-size:12px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .table-panel { padding:0; overflow:auto; }
   .table-panel table { min-width:620px; }
   .case-card { border:1px solid var(--line); border-radius:7px; padding:13px 14px 12px;
@@ -751,11 +755,14 @@
           <span id="runSummary" style="color:var(--ok);font-weight:600"></span>
         </div>
       </div>
+      <div class="hint" style="margin:10px 0 0">
+        通过标准：数值差异不超过 max(1e-6, 1e-4 × |期望值|)，文本去除首尾空白后完全一致。
+      </div>
     </div>
     <div class="panel table-panel">
       <table>
-        <thead><tr><th>用例编号</th><th class="center" style="width:120px">进度</th><th class="center" style="width:150px">状态</th></tr></thead>
-        <tbody id="runCases"><tr><td colspan="3" class="center status-wait empty-state">尚未加载</td></tr></tbody>
+        <thead><tr><th>用例编号</th><th class="center" style="width:120px">进度</th><th class="center" style="width:150px">状态</th><th>失败说明</th></tr></thead>
+        <tbody id="runCases"><tr><td colspan="4" class="center status-wait empty-state">尚未加载</td></tr></tbody>
       </table>
     </div>
     <div class="panel run-log-panel"><div class="logbox" id="runLog"></div></div>
@@ -3838,9 +3845,39 @@ function syncRunReport(st) {
 }
 function statusClass(s) {
   if (s === "通过") return "status-ok";
-  if (["不通过/中断", "失败，已中断"].includes(s)) return "status-bad";
+  if (s === "结果对比不通过") return "status-warn";
+  if (["执行失败", "已中断", "不通过"].includes(s)) return "status-bad";
   if (s === "执行中" || s === "已执行") return "status-run";
   return "status-wait";
+}
+function caseOutcome(st, caseNo) {
+  const outcomes = st && st.execution_summary && st.execution_summary.outcomes;
+  return outcomes && typeof outcomes === "object" ? outcomes[caseNo] || null : null;
+}
+function caseStatus(st, caseNo, step) {
+  const outcome = caseOutcome(st, caseNo);
+  if (outcome) {
+    const detail = String(outcome.error_message || "").trim();
+    if (outcome.stopped) return { text: "已中断", detail: detail || "用户请求停止执行", cls: "status-bad" };
+    if (outcome.passed) return { text: "通过", detail: "", cls: "status-ok" };
+    if (outcome.failure_type === "comparison") {
+      return { text: "结果对比不通过", detail: detail || "实际值与期望值的差异超过允许容差", cls: "status-warn" };
+    }
+    return { text: "执行失败", detail: detail || "测试步骤执行失败", cls: "status-bad" };
+  }
+  if (st.summary && st.summary[caseNo] !== undefined) {
+    return st.summary[caseNo]
+      ? { text: "通过", detail: "", cls: "status-ok" }
+      : { text: "不通过", detail: "旧运行记录未包含失败类型", cls: "status-bad" };
+  }
+  if (step.done) {
+    return step.ok
+      ? { text: "已执行", detail: "", cls: "status-run" }
+      : { text: "执行失败", detail: "正在确认失败类型", cls: "status-bad" };
+  }
+  return step.index > 0
+    ? { text: "执行中", detail: "", cls: "status-run" }
+    : { text: "等待中", detail: "", cls: "status-wait" };
 }
 function renderRunCases(st) {
   syncRunReport(st);
@@ -3851,27 +3888,38 @@ function renderRunCases(st) {
     tbody.innerHTML = "";
     for (const c of st.order) {
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${esc(c)}</td><td class="center" id="p-${esc(c)}">0/${st.steps[c].total}</td><td class="center status-wait" id="s-${esc(c)}">等待中</td>`;
+      tr.innerHTML = `<td>${esc(c)}</td><td class="center" id="p-${esc(c)}">0/${st.steps[c].total}</td><td class="center status-wait" id="s-${esc(c)}">等待中</td><td class="failure-detail" id="d-${esc(c)}"></td>`;
       tbody.appendChild(tr);
     }
-    if (!st.order.length) tbody.innerHTML = `<tr><td colspan="3" class="center status-wait">尚未加载</td></tr>`;
+    if (!st.order.length) tbody.innerHTML = `<tr><td colspan="4" class="center status-wait">尚未加载</td></tr>`;
   }
   for (const c of st.order) {
     const s = st.steps[c];
-    const p = document.getElementById("p-" + CSS.escape(c)), el = document.getElementById("s-" + CSS.escape(c));
-    if (!p || !el) continue;
+    const p = document.getElementById("p-" + CSS.escape(c));
+    const el = document.getElementById("s-" + CSS.escape(c));
+    const detailEl = document.getElementById("d-" + CSS.escape(c));
+    if (!p || !el || !detailEl) continue;
     p.textContent = s.index + "/" + s.total;
-    let text = "等待中";
-    if (s.done) text = s.ok ? "已执行" : "失败，已中断";
-    else if (s.index > 0) text = "执行中";
-    if (st.summary && st.summary[c] !== undefined) text = st.summary[c] ? "通过" : "不通过/中断";
-    el.textContent = text;
-    el.className = "center " + statusClass(text);
+    const status = caseStatus(st, c, s);
+    el.textContent = status.text;
+    el.className = "center " + statusClass(status.text);
+    detailEl.textContent = status.detail;
+    detailEl.title = status.detail;
   }
   if (st.summary && running) {
     setButtons(false);
     const passed = Object.values(st.summary).filter(Boolean).length;
-    document.getElementById("runSummary").textContent = `执行完成：通过 ${passed}/${Object.keys(st.summary).length}`;
+    const outcomes = st.execution_summary && st.execution_summary.outcomes || {};
+    const comparisonFailed = Object.values(outcomes).filter(item => item.failure_type === "comparison").length;
+    const executionFailed = Object.values(outcomes).filter(item => item.failure_type === "execution" && !item.stopped).length;
+    const stopped = Object.values(outcomes).filter(item => item.stopped).length;
+    let summaryText = `执行完成：通过 ${passed}/${Object.keys(st.summary).length}`;
+    if (comparisonFailed) summaryText += `，对比不通过 ${comparisonFailed}`;
+    if (executionFailed) summaryText += `，执行失败 ${executionFailed}`;
+    if (stopped) summaryText += `，已中断 ${stopped}`;
+    const summaryEl = document.getElementById("runSummary");
+    summaryEl.textContent = summaryText;
+    summaryEl.style.color = comparisonFailed && !executionFailed && !stopped ? "var(--warn)" : (!executionFailed && !stopped && !comparisonFailed ? "var(--ok)" : "var(--bad)");
     document.getElementById("resultsTable").dataset.loaded = "";
     if (document.getElementById("resultsPath").value.trim()) loadResults();
   }

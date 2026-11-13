@@ -33,6 +33,7 @@ from software.library import (
     SoftwareLibrary,
     normalize_support_files,
 )
+from software.locust_output import extract_value as extract_locust_value
 
 
 _SAFE_OUTPUT = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
@@ -68,6 +69,7 @@ class GenericCommandAdapter:
         input_filenames=None,
         support_files=None,
         output_filename: str = "output.txt",
+        output_parser: str = "",
         timeout_sec: int = 1800,
         library: SoftwareLibrary | None = None,
     ):
@@ -99,6 +101,7 @@ class GenericCommandAdapter:
         #: 默认随 folder_prep 复制的运行依赖，可被剧本第 6 列覆盖。
         self.support_files = tuple(normalize_support_files(support_files))
         self.output_filename = output_filename
+        self.output_parser = str(output_parser or "").strip().lower()
         self.timeout_sec = int(timeout_sec or 1800)
         self.library = library or SoftwareLibrary()
 
@@ -121,6 +124,7 @@ class GenericCommandAdapter:
             input_filenames=manifest.get("input_filenames"),
             support_files=manifest.get("support_files"),
             output_filename=str(manifest.get("output_filename") or "output.txt"),
+            output_parser=str(manifest.get("output_parser") or ""),
             timeout_sec=int(manifest.get("timeout_sec") or 1800),
             library=library,
         )
@@ -174,12 +178,17 @@ class GenericCommandAdapter:
         """本次运行使用的输入卡顺序；剧本显式指定的输入卡优先作为主输入卡。"""
         names = list(self.input_filenames)
         requested = str(getattr(request, "input_name", "") or "").strip()
-        if not requested or requested.casefold() == names[0].casefold():
+        if not requested:
             return names
-        ordered = [requested] + [
-            name for name in names if name.casefold() != requested.casefold()
-        ]
-        return ordered[:MAX_CUSTOM_INPUTS]
+        marker = requested.casefold()
+        for index, name in enumerate(names):
+            if name.casefold() != marker:
+                continue
+            if index == 0:
+                return names
+            return [name, *names[:index], *names[index + 1:]][:MAX_CUSTOM_INPUTS]
+        # 显式输入卡覆盖主输入卡；辅助输入卡仍由软件登记自动带入。
+        return [requested, *names[1:]][:MAX_CUSTOM_INPUTS]
 
     def _input_candidates(
         self, name: str, run_dir: Path, root: Path
@@ -289,6 +298,12 @@ class GenericCommandAdapter:
         return {"pairs": len(values), "keys": sorted(values)[:200]}
 
     def extract_value(self, text: str, key: str):
+        if self.output_parser:
+            if self.output_parser == "locust":
+                return extract_locust_value(text, key)
+            raise SoftwareAdapterError(
+                f"未支持的输出解析器: {self.output_parser}"
+            )
         wanted = str(key or "").strip()
         if not wanted:
             return None

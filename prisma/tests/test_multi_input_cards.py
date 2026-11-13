@@ -186,6 +186,25 @@ class MultiInputCommandTests(unittest.TestCase):
             ["solver.exe", "case.inp", "-o", "case.out"],
         )
 
+    def test_explicit_input_replaces_registered_primary_and_keeps_auxiliary(self):
+        adapter = get_adapter("multi_card", self.library)
+        request = self._request("simulate", input_name="custom.inp")
+        self.assertEqual(adapter.input_names(request), ["custom.inp", "table.dat"])
+
+    def test_explicit_input_reorders_a_registered_auxiliary_card(self):
+        adapter = get_adapter("multi_card", self.library)
+        request = self._request("simulate", input_name="table.dat")
+        self.assertEqual(adapter.input_names(request), ["table.dat", "case.inp"])
+
+    def test_explicit_single_input_replaces_registered_primary(self):
+        adapter = GenericCommandAdapter(
+            key="single",
+            display_name="SINGLE",
+            input_filenames=["input.i"],
+        )
+        request = self._request("simulate", input_name="system1.i")
+        self.assertEqual(adapter.input_names(request), ["system1.i"])
+
     def test_real_run_stages_every_card_into_run_dir(self):
         source = write_pe(self.base / "solver" / "solver.exe")
         self.library.import_source(get_adapter("multi_card", self.library), source)
@@ -315,6 +334,38 @@ class FolderPrepMultiCardTests(unittest.TestCase):
         self.assertEqual((run_dir / "case.inp").read_text(encoding="utf-8"), "MAIN\n")
         self.assertEqual(
             (run_dir / "table.dat").read_text(encoding="utf-8"), "T1 1.0\n"
+        )
+
+    def test_explicit_unregistered_card_replaces_registered_primary(self):
+        (self.project / "inputs" / "custom.inp").write_text(
+            "CUSTOM\n", encoding="utf-8"
+        )
+        logger = MagicMock()
+        with patch(
+            "keywords.keyword_lib.get_adapter", return_value=self.adapter
+        ), patch("keywords.keyword_lib.init_log", return_value=logger):
+            ok = KeyPrisma.folder_prep(
+                "TC-PREP",
+                "case-1",
+                "custom.inp",
+                "",
+                context=self.context,
+                software_key="multi_card",
+            )
+
+        self.assertTrue(ok)
+        run_dir = self.project / "test_cases" / "case-1"
+        self.assertEqual(
+            (run_dir / "custom.inp").read_text(encoding="utf-8"), "CUSTOM\n"
+        )
+        self.assertTrue((run_dir / "table.dat").is_file())
+        self.assertFalse((run_dir / "case.inp").exists())
+        warning_messages = [
+            str(call.args[0]) for call in logger.warning.call_args_list
+        ]
+        self.assertNotIn(
+            "declared input card not found: %s",
+            warning_messages,
         )
 
 

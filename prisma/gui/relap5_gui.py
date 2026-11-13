@@ -221,11 +221,13 @@ class Relap5App:
             self.ui_queue.put(("step", case_no, index, total, ok))
 
         try:
-            results = execute_testcase(
+            summary = execute_testcase(
                 file_path=str(script), max_workers=workers,
-                stop_event=self.stop_event, progress_cb=progress)
-            status = "已停止" if self.stop_event.is_set() else "执行完成"
-            self.ui_queue.put(("summary", results, status))
+                stop_event=self.stop_event, progress_cb=progress,
+                return_summary=True)
+            stopped = any(item.stopped for item in summary.outcomes.values())
+            status = "已中断" if stopped else "执行完成"
+            self.ui_queue.put(("summary", summary, status))
         except Exception as exc:
             self.ui_queue.put(("error", str(exc)))
 
@@ -253,20 +255,28 @@ class Relap5App:
             _, case_no, index, total, ok = msg
             if not self.tree.exists(case_no):
                 return
-            status = "失败，已中断" if not ok else ("执行中" if index < total else "已执行")
+            status = "执行失败" if not ok else ("执行中" if index < total else "已执行")
             self.tree.set(case_no, "progress", f"{index}/{total}")
             self.tree.set(case_no, "status", status)
         elif kind == "summary":
-            _, results, status = msg
-            for case_no, ok in results.items():
+            _, summary, status = msg
+            for case_no, outcome in summary.outcomes.items():
                 if self.tree.exists(case_no):
-                    self.tree.set(case_no, "status", "通过" if ok else "不通过/中断")
+                    if outcome.stopped:
+                        case_status = "已中断"
+                    elif outcome.passed:
+                        case_status = "通过"
+                    elif outcome.failure_type == "comparison":
+                        case_status = "结果对比不通过"
+                    else:
+                        case_status = "执行失败"
+                    self.tree.set(case_no, "status", case_status)
             self.btn_start.config(state="normal")
             self.btn_stop.config(state="disabled")
-            passed = sum(1 for v in results.values() if v)
+            passed = sum(1 for value in summary.results.values() if value)
             messagebox.showinfo(
                 "执行结束",
-                f"{status}：通过 {passed}/{len(results)}\n结果已回填到结果表。")
+                f"{status}：通过 {passed}/{len(summary.results)}\n结果已回填到结果表。")
         elif kind == "error":
             self.btn_start.config(state="normal")
             self.btn_stop.config(state="disabled")
