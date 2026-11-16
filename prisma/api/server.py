@@ -34,6 +34,11 @@ from common.util_prisma import (
     release_log_file,
     resolve_path,
 )
+from common.version_compare import (
+    VersionCompareError,
+    compare_reports,
+    discover_reports,
+)
 from project_store import LEGACY_PROJECT_ID, Project, ProjectError, ProjectStore
 from run_prisma.executor import execute_testcase
 from software import (
@@ -651,6 +656,20 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(read_results(
                     _resolve_member(project, result_path), project.root
                 ))
+            elif url.path == "/api/reports":
+                try:
+                    self._send({"reports": discover_reports(project.root)})
+                except VersionCompareError as exc:
+                    raise ProjectError(str(exc)) from exc
+            elif url.path == "/api/report/compare":
+                try:
+                    self._send(compare_reports(
+                        project.root,
+                        q("baseline"),
+                        q("latest"),
+                    ))
+                except VersionCompareError as exc:
+                    raise ProjectError(str(exc)) from exc
             elif url.path == "/api/keywords":
                 self._send({
                     "keywords": all_keywords(project.root),

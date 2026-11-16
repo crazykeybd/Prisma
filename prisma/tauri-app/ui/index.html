@@ -269,6 +269,75 @@
   .section-tools { margin-top:11px; }
   .empty-state { text-align:center; color:var(--dim); padding:42px 16px !important; }
   .result-toolbar { margin-bottom:2px; }
+  .compare-config { display:grid; grid-template-columns:minmax(230px,1fr) 38px minmax(230px,1fr) auto;
+    align-items:end; gap:9px; margin-top:12px; }
+  .compare-field { display:grid; gap:6px; min-width:0; color:var(--dim); font-size:12px; }
+  .compare-field select { width:100%; height:36px; }
+  .compare-swap { width:38px; height:36px; padding:0; color:var(--acc); font-size:16px; }
+  .compare-config > .primary { height:36px; }
+  .compare-status { margin-top:10px; color:var(--dim); font-size:12px; line-height:1.6; }
+  .compare-status.error { color:var(--bad); }
+  .compare-version-panel { padding:14px 16px; }
+  .compare-version-band { display:grid; grid-template-columns:minmax(0,1fr) 42px minmax(0,1fr);
+    align-items:center; gap:12px; }
+  .compare-version-side { min-width:0; }
+  .compare-version-tag { display:inline-flex; align-items:center; height:22px; padding:0 7px;
+    margin-right:8px; border-radius:4px; background:#eef4fb; color:#315b84;
+    font-size:10px; font-weight:600; vertical-align:middle; }
+  .compare-version-tag.latest { background:#e9f7f0; color:var(--ok); }
+  .compare-version-main { display:flex; align-items:baseline; flex-wrap:wrap; gap:4px 9px; min-width:0; }
+  .compare-version-main b { font-size:16px; color:var(--fg); }
+  .compare-version-run { min-width:0; color:#40546c; font-family:Consolas,"Cascadia Mono",monospace;
+    font-size:11px; overflow-wrap:anywhere; }
+  .compare-version-note { margin-top:5px; color:var(--dim); font-size:11px; line-height:1.5;
+    overflow-wrap:anywhere; }
+  .compare-version-arrow { text-align:center; color:var(--acc); font-size:20px; }
+  .compare-metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px;
+    margin-bottom:14px; }
+  .compare-metric { min-width:0; padding:13px 14px; border:1px solid var(--line);
+    border-radius:7px; background:#fff; box-shadow:var(--shadow); }
+  .compare-metric-cap { color:var(--dim); font-size:12px; }
+  .compare-metric-values { display:flex; align-items:baseline; gap:7px; flex-wrap:wrap;
+    margin-top:7px; font-size:20px; line-height:1.25; font-weight:650; }
+  .compare-metric-before { color:#8a97a7; font-weight:500; }
+  .compare-metric-arrow { color:#9aa8b8; font-size:13px; font-weight:400; }
+  .compare-metric-now { color:var(--fg); }
+  .compare-metric-delta { min-height:18px; margin-top:5px; color:var(--dim); font-size:11px; }
+  .compare-metric-delta.good { color:var(--ok); }
+  .compare-metric-delta.bad { color:var(--bad); }
+  .compare-table-panel { padding:0; overflow:hidden; }
+  .compare-table-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    padding:13px 14px; border-bottom:1px solid var(--line-soft); }
+  .compare-table-head h2 { margin:0; font-size:15px; font-weight:650; }
+  .compare-table-head .hint { margin:0; }
+  .compare-filters { display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+  .compare-filters select { min-width:130px; }
+  .compare-filters input { width:min(230px,42vw); }
+  .compare-count { color:var(--dim); font-size:11px; white-space:nowrap; }
+  .compare-scroll { overflow:auto; }
+  .compare-scroll table { min-width:860px; }
+  .compare-scroll.compare-check-scroll table { min-width:1040px; }
+  .compare-scroll th { position:sticky; top:0; z-index:1; }
+  .compare-scroll td { vertical-align:top; }
+  .compare-case-link { height:auto; min-height:0; padding:0; border:0; background:transparent;
+    color:var(--acc); font-family:Consolas,"Cascadia Mono",monospace; font-size:12px;
+    font-weight:600; text-decoration:underline; text-underline-offset:2px; }
+  .compare-case-link:hover { border:0; background:transparent; color:var(--acc2); }
+  .compare-value { max-width:270px; color:#344255; font-family:Consolas,"Cascadia Mono",monospace;
+    font-size:11px; line-height:1.5; overflow-wrap:anywhere; }
+  .compare-value.empty { color:#9aa8b8; font-style:italic; }
+  .change-pill { display:inline-flex; align-items:center; height:22px; padding:0 7px;
+    border:1px solid var(--line); border-radius:4px; background:#f7f9fc; color:var(--dim);
+    font-size:10px; font-weight:600; white-space:nowrap; }
+  .change-pill.regressed, .change-pill.added { color:var(--bad); border-color:#f0c6ca; background:var(--bad-bg); }
+  .change-pill.fixed { color:var(--ok); border-color:#cce8d9; background:var(--ok-bg); }
+  .change-pill.changed { color:var(--warn); border-color:#eed8a7; background:var(--warn-bg); }
+  .change-pill.removed { color:#6d7b8c; border-color:#d8e0e9; background:#f3f6f9; }
+  .compare-error-detail { max-width:330px; color:var(--dim); font-size:11px; line-height:1.5;
+    overflow-wrap:anywhere; }
+  .compare-empty { padding:38px 16px; text-align:center; color:var(--dim); }
+  .compare-warning { margin:0 14px 12px; padding:8px 10px; border:1px solid #f3dfad;
+    border-radius:5px; background:#fff8e6; color:#795006; font-size:12px; line-height:1.6; }
   .project-heading { align-items:flex-start; margin-bottom:14px; }
   .project-heading h2 { margin-bottom:3px; }
   .project-heading .hint { margin:0; }
@@ -411,6 +480,8 @@
     .cfg-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
     .run-options { grid-template-columns:auto minmax(0,1fr); }
     .run-actions { grid-column:1 / -1; justify-content:flex-start; padding-top:2px; }
+    .compare-config { grid-template-columns:minmax(0,1fr) 38px minmax(0,1fr); }
+    .compare-config > .primary { grid-column:1 / -1; justify-self:start; }
   }
   @media (max-width: 820px) {
     .nav { min-height:0; padding:0; display:grid; grid-template-columns:1fr; }
@@ -430,6 +501,16 @@
     .cards { grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
     .card { padding:13px 14px; }
     .card .num { font-size:20px; }
+    .compare-config { grid-template-columns:1fr; align-items:stretch; }
+    .compare-swap { justify-self:start; }
+    .compare-config > .primary { grid-column:auto; justify-self:start; }
+    .compare-version-band { grid-template-columns:1fr; }
+    .compare-version-arrow { text-align:left; }
+    .compare-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+    .compare-metric { padding:12px; }
+    .compare-filters { width:100%; }
+    .compare-filters select, .compare-filters input { width:100%; }
+    .compare-count { width:100%; }
     .case-head { flex-wrap:wrap; }
     .case-head input { width:auto; flex:1 1 180px; }
     .case-head .spacer { display:none; }
@@ -608,6 +689,7 @@
         <button class="primary" onclick="switchTab('run')">▶ 前往运行测试</button>
         <button onclick="switchTab('script')">编辑测试剧本</button>
         <button onclick="switchTab('results')">查看测试结果</button>
+        <button onclick="switchTab('compare')">版本对比</button>
       </div>
     </div>
   </div>
@@ -783,6 +865,108 @@
       </div>
     </div>
     <div class="panel table-panel"><table id="resultsTable"><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <!-- ============ 版本对比 ============ -->
+  <div id="page-compare" class="page" style="display:none">
+    <div class="panel">
+      <div class="toolbar">
+        <div>
+          <h2 class="page">版本对比</h2>
+          <div class="hint" style="margin:3px 0 0">
+            对比不同软件版本或同一版本的不同轮次；数据来自每轮运行时保存的 results.json 快照。
+          </div>
+        </div>
+        <div class="spacer"></div>
+        <button onclick="loadCompareRuns(true)">刷新运行记录</button>
+      </div>
+      <div class="compare-config">
+        <label class="compare-field">
+          <span>基准版本（较早）</span>
+          <select id="compareBaseline" aria-label="选择基准运行"></select>
+        </label>
+        <button class="compare-swap" onclick="swapCompareRuns()" title="交换基准与对比运行" aria-label="交换基准与对比运行">⇄</button>
+        <label class="compare-field">
+          <span>对比版本（较新）</span>
+          <select id="compareLatest" aria-label="选择对比运行"></select>
+        </label>
+        <button class="primary" id="btnVersionCompare" onclick="runVersionCompare()">开始对比</button>
+      </div>
+      <div class="compare-status" id="compareStatus">正在读取运行记录...</div>
+    </div>
+
+    <div id="compareOutput" style="display:none">
+      <div class="panel compare-version-panel">
+        <div class="compare-version-band" id="compareVersionBand"></div>
+      </div>
+      <div class="compare-metrics" id="compareMetrics"></div>
+
+      <div class="panel compare-table-panel">
+        <div class="compare-table-head">
+          <h2>用例变化</h2>
+          <span class="compare-count" id="compareCaseCount"></span>
+          <div class="spacer"></div>
+          <div class="compare-filters">
+            <select id="compareCaseFilter" onchange="renderCompareCases()" aria-label="筛选用例变化">
+              <option value="all">全部用例</option>
+              <option value="changed">仅变化</option>
+              <option value="regressed">仅回归</option>
+              <option value="fixed">仅改善</option>
+              <option value="added_removed">新增或移除</option>
+            </select>
+            <input type="text" id="compareCaseSearch" placeholder="搜索用例编号或错误..." oninput="renderCompareCases()">
+          </div>
+        </div>
+        <div class="compare-scroll">
+          <table>
+            <thead><tr>
+              <th style="width:150px">用例编号</th>
+              <th style="width:110px">基准状态</th>
+              <th style="width:110px">对比状态</th>
+              <th style="width:100px">变化</th>
+              <th style="width:150px">检查变化</th>
+              <th>失败说明</th>
+            </tr></thead>
+            <tbody id="compareCaseRows"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel compare-table-panel">
+        <div class="compare-table-head">
+          <h2>检查项变化</h2>
+          <span class="compare-count" id="compareCheckCount"></span>
+          <div class="spacer"></div>
+          <div class="compare-filters">
+            <select id="compareCheckFilter" onchange="renderCompareChecks()" aria-label="筛选检查项变化">
+              <option value="all">全部检查项</option>
+              <option value="changed">仅变化</option>
+              <option value="regressed">仅回归</option>
+              <option value="fixed">仅改善</option>
+              <option value="added_removed">新增或移除</option>
+            </select>
+            <select id="compareCheckCase" onchange="renderCompareChecks()" aria-label="按用例筛选检查项">
+              <option value="">全部用例</option>
+            </select>
+            <input type="text" id="compareCheckSearch" placeholder="搜索检查键..." oninput="renderCompareChecks()">
+          </div>
+        </div>
+        <div class="compare-scroll compare-check-scroll">
+          <table>
+            <thead><tr>
+              <th style="width:140px">用例编号</th>
+              <th style="width:180px">检查键</th>
+              <th style="width:200px">基准期望 / 实际值</th>
+              <th style="width:200px">对比期望 / 实际值</th>
+              <th style="width:130px">实际值变化</th>
+              <th style="width:100px">结果变化</th>
+              <th>说明</th>
+            </tr></thead>
+            <tbody id="compareCheckRows"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ============ 数据绘图 ============ -->
@@ -1165,6 +1349,9 @@ let currentProject = null;
 let projectCatalog = [];
 let softwareCatalog = [];
 let softwareLibraryRoot = "";
+let compareRuns = [];
+let compareResult = null;
+let compareRunsLoaded = false;
 let pendingSoftwareImport = null;
 let pendingSoftwareEdit = null;
 let pendingSaveProject = null;
@@ -1174,7 +1361,7 @@ const hasTauri = typeof window.__TAURI__ !== "undefined";
 const TABS = [
   ["projects", "项目"], ["software", "软件库"], ["overview", "总览"], ["relap", "输入卡"],
   ["script", "测试剧本"], ["run", "运行测试"], ["results", "测试结果"],
-  ["plot", "数据绘图"], ["keywords", "关键词列表"], ["files", "文件浏览"],
+  ["compare", "版本对比"], ["plot", "数据绘图"], ["keywords", "关键词列表"], ["files", "文件浏览"],
   ["log", "日志"], ["config", "配置"],
 ];
 
@@ -1858,6 +2045,9 @@ function resetProjectViews() {
   filePath = null;
   logAfter = 0;
   lastOrderKey = "";
+  compareRuns = [];
+  compareResult = null;
+  compareRunsLoaded = false;
   document.getElementById("scriptEditor").innerHTML = "";
   const resultsTable = document.getElementById("resultsTable");
   if (resultsTable) {
@@ -1876,6 +2066,17 @@ function resetProjectViews() {
   document.getElementById("relapInputSummaryDetail").classList.remove("show");
   document.getElementById("relapInputSummary").textContent = "尚未解析输入卡。选择文件或粘贴内容后开始。";
   document.getElementById("relapInputPath").value = "inputs\\CheckSGInput.txt";
+  document.getElementById("compareBaseline").innerHTML = "";
+  document.getElementById("compareLatest").innerHTML = "";
+  document.getElementById("compareStatus").textContent = "正在读取运行记录...";
+  document.getElementById("compareStatus").classList.remove("error");
+  document.getElementById("compareOutput").style.display = "none";
+  document.getElementById("compareVersionBand").innerHTML = "";
+  document.getElementById("compareMetrics").innerHTML = "";
+  document.getElementById("compareCaseRows").innerHTML = "";
+  document.getElementById("compareCheckRows").innerHTML = "";
+  document.getElementById("compareCaseCount").textContent = "";
+  document.getElementById("compareCheckCount").textContent = "";
 }
 
 async function reloadActiveProjectData() {
@@ -1884,6 +2085,7 @@ async function reloadActiveProjectData() {
   if (activeTabId === "files") await refreshFiles();
   if (activeTabId === "log") await loadLogfile();
   if (activeTabId === "results") await loadResults();
+  if (activeTabId === "compare") await loadCompareRuns(true);
 }
 
 async function activateProject(projectId) {
@@ -2001,6 +2203,7 @@ function switchTab(id) {
   if (id === "log") { loadLogfile(); toggleLogAuto(); }
   if (id === "keywords") loadKeywords();
   if (id === "results" && !document.getElementById("resultsTable").dataset.loaded) loadResults();
+  if (id === "compare" && !compareRunsLoaded) loadCompareRuns();
   if (id === "plot") {
     const frame = document.getElementById("plotFrame");
     if (frame && !frame.getAttribute("src")) frame.src = frame.dataset.src;
@@ -3960,6 +4163,445 @@ async function loadResults(path) {
     document.getElementById("resultsTable").dataset.loaded = "1";
     warn("");
   } catch (e) { warn("加载结果失败: " + (e && e.message ? e.message : e)); }
+}
+
+/* ---------------- 版本对比 ---------------- */
+const COMPARE_CHANGE_LABELS = {
+  regressed: "回归",
+  fixed: "改善",
+  changed: "变化",
+  added: "新增",
+  removed: "移除",
+  unchanged: "未变化",
+};
+
+function compareModeLabel(mode) {
+  if (mode === "real") return "真实运行";
+  if (mode === "simulate") return "模拟运行";
+  return mode || "模式未标注";
+}
+
+function compareDurationLabel(value) {
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds)) return "-";
+  if (seconds < 60) return seconds.toFixed(2) + " 秒";
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds - minutes * 60;
+  return `${minutes} 分 ${rest.toFixed(1)} 秒`;
+}
+
+function compareOptionHtml(run) {
+  const label = run.label || `${run.version_label || "未标注版本"} · ${run.run_id}`;
+  return `<option value="${esc(run.run_id)}">${esc(label)}</option>`;
+}
+
+function setCompareStatus(message, isError) {
+  const status = document.getElementById("compareStatus");
+  status.textContent = message || "";
+  status.classList.toggle("error", !!isError);
+}
+
+async function loadCompareRuns(force) {
+  if (compareRunsLoaded && !force) return true;
+  const baseline = document.getElementById("compareBaseline");
+  const latest = document.getElementById("compareLatest");
+  const button = document.getElementById("btnVersionCompare");
+  const previousBaseline = baseline.value;
+  const previousLatest = latest.value;
+  button.disabled = true;
+  setCompareStatus("正在读取当前项目的运行记录...", false);
+  try {
+    const data = await api("/api/reports");
+    compareRuns = data.reports || [];
+    compareRunsLoaded = true;
+    if (force) {
+      compareResult = null;
+      document.getElementById("compareOutput").style.display = "none";
+    }
+    baseline.innerHTML = compareRuns.length
+      ? compareRuns.map(compareOptionHtml).join("")
+      : `<option value="">暂无可用运行记录</option>`;
+    latest.innerHTML = baseline.innerHTML;
+    if (!compareRuns.length) {
+      setCompareStatus("当前项目还没有包含 results.json 的运行报告。请先完成至少两轮测试。", false);
+      return true;
+    }
+    const ids = new Set(compareRuns.map(run => run.run_id));
+    if (compareRuns.length === 1) {
+      baseline.value = compareRuns[0].run_id;
+      latest.value = compareRuns[0].run_id;
+      setCompareStatus("已发现 1 轮运行记录；版本对比至少需要两轮结果。", false);
+      return true;
+    }
+    baseline.value = ids.has(previousBaseline) ? previousBaseline : compareRuns[1].run_id;
+    latest.value = ids.has(previousLatest) ? previousLatest : compareRuns[0].run_id;
+    if (baseline.value === latest.value) baseline.value = compareRuns[1].run_id;
+    button.disabled = false;
+    setCompareStatus(`已发现 ${compareRuns.length} 轮运行记录。默认选择最新两轮，可手动切换版本或轮次。`, false);
+    return true;
+  } catch (e) {
+    compareRunsLoaded = false;
+    baseline.innerHTML = `<option value="">读取失败</option>`;
+    latest.innerHTML = baseline.innerHTML;
+    setCompareStatus("读取运行记录失败: " + (e && e.message ? e.message : e), true);
+    return false;
+  }
+}
+
+function swapCompareRuns() {
+  const baseline = document.getElementById("compareBaseline");
+  const latest = document.getElementById("compareLatest");
+  const oldBaseline = baseline.value;
+  baseline.value = latest.value;
+  latest.value = oldBaseline;
+  if (document.getElementById("compareOutput").style.display !== "none") {
+    runVersionCompare();
+  }
+}
+
+async function runVersionCompare() {
+  const baseline = document.getElementById("compareBaseline").value;
+  const latest = document.getElementById("compareLatest").value;
+  if (!baseline || !latest) {
+    setCompareStatus("请选择基准版本和对比版本。", true);
+    return;
+  }
+  if (compareRuns.length < 2) {
+    setCompareStatus("版本对比至少需要两轮运行结果。", true);
+    return;
+  }
+  const button = document.getElementById("btnVersionCompare");
+  button.disabled = true;
+  button.textContent = "正在对比...";
+  setCompareStatus("正在读取两轮结果快照并计算变化...", false);
+  try {
+    const data = await api(
+      "/api/report/compare?baseline=" + encodeURIComponent(baseline)
+      + "&latest=" + encodeURIComponent(latest)
+    );
+    compareResult = data;
+    renderCompareResult();
+    setCompareStatus(
+      `对比完成：${data.baseline.version_label} → ${data.latest.version_label}。`,
+      false
+    );
+    warn("");
+  } catch (e) {
+    compareResult = null;
+    document.getElementById("compareOutput").style.display = "none";
+    setCompareStatus("版本对比失败: " + (e && e.message ? e.message : e), true);
+  } finally {
+    button.disabled = compareRuns.length < 2;
+    button.textContent = "开始对比";
+  }
+}
+
+function compareChangePill(type) {
+  const className = COMPARE_CHANGE_LABELS[type] ? type : "unchanged";
+  return `<span class="change-pill ${className}">${esc(COMPARE_CHANGE_LABELS[type] || type || "-")}</span>`;
+}
+
+function compareStatusText(passed, status) {
+  if (passed === null || passed === undefined) return "缺失";
+  if (passed) return "通过";
+  if (status === "跳过") return "跳过";
+  return "失败";
+}
+
+function compareStatusHtml(status, passed) {
+  if (passed === null || passed === undefined) return `<span class="status-wait">缺失</span>`;
+  if (passed) return `<span class="status-ok">${esc(status)}</span>`;
+  if (status === "跳过") return `<span class="status-warn">${esc(status)}</span>`;
+  return `<span class="status-bad">${esc(status)}</span>`;
+}
+
+function compareNumber(value, digits) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "-";
+  return number.toLocaleString("zh-CN", {
+    maximumFractionDigits: digits == null ? 4 : digits,
+  });
+}
+
+function compareMetricCard(label, metric, better, formatter) {
+  const before = Number(metric && metric.baseline) || 0;
+  const after = Number(metric && metric.latest) || 0;
+  const delta = after - before;
+  const format = formatter || (value => compareNumber(value, 0));
+  let tone = "";
+  let judgment = "";
+  if (delta !== 0 && better === "up") {
+    tone = delta > 0 ? "good" : "bad";
+    judgment = delta > 0 ? "改善" : "需关注";
+  } else if (delta !== 0 && better === "down") {
+    tone = delta < 0 ? "good" : "bad";
+    judgment = delta < 0 ? "改善" : "需关注";
+  }
+  const deltaText = delta === 0
+    ? "无变化"
+    : `${delta > 0 ? "+" : ""}${format(delta)}${judgment ? " · " + judgment : ""}`;
+  return `<div class="compare-metric">
+    <div class="compare-metric-cap">${esc(label)}</div>
+    <div class="compare-metric-values">
+      <span class="compare-metric-before">${esc(format(before))}</span>
+      <span class="compare-metric-arrow">→</span>
+      <span class="compare-metric-now">${esc(format(after))}</span>
+    </div>
+    <div class="compare-metric-delta ${tone}">${esc(deltaText)}</div>
+  </div>`;
+}
+
+function compareCountCard(label, value, tone, note) {
+  return `<div class="compare-metric">
+    <div class="compare-metric-cap">${esc(label)}</div>
+    <div class="compare-metric-values"><span class="compare-metric-now">${esc(compareNumber(value, 0))}</span></div>
+    <div class="compare-metric-delta ${tone || ""}">${esc(note || "")}</div>
+  </div>`;
+}
+
+function renderCompareVersionBand(run, label, latest) {
+  return `<div class="compare-version-side">
+    <span class="compare-version-tag ${latest ? "latest" : ""}">${esc(label)}</span>
+    <span class="compare-version-main">
+      <b>${esc(run.version_label || "未标注版本")}</b>
+      <span class="compare-version-run">${esc(run.run_id)}</span>
+    </span>
+    <div class="compare-version-note">
+      ${esc(run.software_name || "软件未标注")} · ${esc(compareModeLabel(run.mode))}<br>
+      ${esc(fmtDate(run.finished_at || run.started_at))} · 耗时 ${esc(compareDurationLabel(run.duration_seconds))}
+    </div>
+  </div>`;
+}
+
+function renderCompareResult() {
+  if (!compareResult) return;
+  const summary = compareResult.summary || {};
+  const counts = compareResult.counts || { cases: {}, checks: {} };
+  document.getElementById("compareVersionBand").innerHTML =
+    renderCompareVersionBand(compareResult.baseline, "基准", false)
+    + `<div class="compare-version-arrow">→</div>`
+    + renderCompareVersionBand(compareResult.latest, "对比", true);
+  document.getElementById("compareMetrics").innerHTML = [
+    compareMetricCard("通过用例", summary.passed_cases, "up", value => compareNumber(value, 0)),
+    compareMetricCard("失败用例", summary.failed_cases, "down", value => compareNumber(value, 0)),
+    compareMetricCard("失败检查", summary.failed_checks, "down", value => compareNumber(value, 0)),
+    compareMetricCard("异常点", summary.anomalies, "down", value => compareNumber(value, 0)),
+    compareMetricCard("耗时", summary.duration_seconds, "down", compareDurationLabel),
+    compareMetricCard("退出码", summary.exit_code, "down", value => compareNumber(value, 0)),
+    compareCountCard("回归用例", (counts.cases || {}).regressed || 0, "bad", "通过 → 失败"),
+    compareCountCard("改善用例", (counts.cases || {}).fixed || 0, "good", "失败 → 通过"),
+  ].join("");
+
+  document.getElementById("compareCaseFilter").value = "all";
+  document.getElementById("compareCaseSearch").value = "";
+  document.getElementById("compareCheckFilter").value = "all";
+  document.getElementById("compareCheckCase").value = "";
+  document.getElementById("compareCheckSearch").value = "";
+  populateCompareCheckCaseOptions();
+  renderCompareCases();
+  renderCompareChecks();
+  document.getElementById("compareOutput").style.display = "block";
+}
+
+function compareFilterMatches(type, filter) {
+  if (filter === "changed") return type !== "unchanged";
+  if (filter === "added_removed") return type === "added" || type === "removed";
+  if (filter === "regressed" || filter === "fixed") return type === filter;
+  return true;
+}
+
+function compareFailureLabel(caseData) {
+  if (!caseData) return "";
+  const error = String(caseData.error_message || "").trim();
+  if (error) return error;
+  const type = String(caseData.failure_type || "").trim();
+  if (type === "comparison") return "结果检查未通过";
+  if (type === "execution") return "执行步骤失败";
+  return "";
+}
+
+function renderCompareCaseDetail(item) {
+  const before = compareFailureLabel(item.before);
+  const after = compareFailureLabel(item.after);
+  if (before && after && before !== after) {
+    return `<div class="compare-error-detail"><b>基准：</b>${esc(before)}<br><b>对比：</b>${esc(after)}</div>`;
+  }
+  const text = after || before;
+  return text
+    ? `<div class="compare-error-detail" title="${esc(text)}">${esc(text)}</div>`
+    : `<span class="status-wait">-</span>`;
+}
+
+function focusCompareCase(caseNo) {
+  document.getElementById("compareCheckCase").value = String(caseNo);
+  document.getElementById("compareCheckFilter").value = "all";
+  document.getElementById("compareCheckSearch").value = "";
+  renderCompareChecks();
+  document.getElementById("compareCheckCase").scrollIntoView({ block: "center" });
+}
+
+function compareCaseCheckSummary(item) {
+  if (!item.changed_checks) {
+    if (item.change_type === "added" || item.change_type === "removed") {
+      return `<span class="status-wait">检查项${COMPARE_CHANGE_LABELS[item.change_type]}</span>`;
+    }
+    return `<span class="status-wait">-</span>`;
+  }
+  const changes = (compareResult.check_changes || [])
+    .filter(check => check.case_no === item.case_no && check.change_type !== "unchanged");
+  const regressed = changes.filter(check => check.change_type === "regressed").length;
+  const fixed = changes.filter(check => check.change_type === "fixed").length;
+  const other = changes.length - regressed - fixed;
+  const parts = [];
+  if (regressed) parts.push(`<span class="status-bad">回归 ${regressed}</span>`);
+  if (fixed) parts.push(`<span class="status-ok">改善 ${fixed}</span>`);
+  if (other) parts.push(`<span class="status-warn">其他变化 ${other}</span>`);
+  return parts.join(" ") || `<span class="status-wait">-</span>`;
+}
+
+function renderCompareCases() {
+  if (!compareResult) return;
+  const filter = document.getElementById("compareCaseFilter").value;
+  const search = document.getElementById("compareCaseSearch").value.trim().toLowerCase();
+  const rows = compareResult.case_changes || [];
+  const filtered = rows.filter(item => {
+    if (!compareFilterMatches(item.change_type, filter)) return false;
+    if (!search) return true;
+    return [
+      item.case_no,
+      item.before_error,
+      item.after_error,
+      item.before_failure_type,
+      item.after_failure_type,
+    ].some(value => String(value || "").toLowerCase().includes(search));
+  });
+  const body = document.getElementById("compareCaseRows");
+  body.innerHTML = filtered.length ? filtered.map(item => {
+    return `<tr>
+      <td><button class="compare-case-link" onclick="focusCompareCase(${esc(JSON.stringify(item.case_no))})">${esc(item.case_no)}</button></td>
+      <td>${compareStatusHtml(compareStatusText(item.before_passed, item.before_status), item.before_passed)}</td>
+      <td>${compareStatusHtml(compareStatusText(item.after_passed, item.after_status), item.after_passed)}</td>
+      <td>${compareChangePill(item.change_type)}</td>
+      <td>${compareCaseCheckSummary(item)}</td>
+      <td>${renderCompareCaseDetail(item)}</td>
+    </tr>`;
+  }).join("") : `<tr><td colspan="6" class="compare-empty">没有符合当前筛选条件的用例。</td></tr>`;
+  document.getElementById("compareCaseCount").textContent =
+    `显示 ${filtered.length} / ${rows.length} 个用例`;
+}
+
+function populateCompareCheckCaseOptions() {
+  const select = document.getElementById("compareCheckCase");
+  const previous = select.value;
+  const cases = (compareResult && compareResult.case_changes || []).map(item => item.case_no);
+  select.innerHTML = `<option value="">全部用例</option>`
+    + cases.map(caseNo => `<option value="${esc(caseNo)}">${esc(caseNo)}</option>`).join("");
+  if (cases.includes(previous)) select.value = previous;
+}
+
+function compareDisplayValue(value, exists) {
+  if (!exists) return { text: "—", empty: true };
+  if (value === null || value === undefined || value === "") {
+    return { text: "未取得", empty: true };
+  }
+  if (typeof value === "object") {
+    try {
+      return { text: JSON.stringify(value), empty: false };
+    } catch (_) {
+      return { text: String(value), empty: false };
+    }
+  }
+  return { text: String(value), empty: false };
+}
+
+function compareValueHtml(value, exists) {
+  const display = compareDisplayValue(value, exists);
+  return `<span class="compare-value ${display.empty ? "empty" : ""}" title="${esc(display.text)}">${esc(display.text)}</span>`;
+}
+
+function compareValuePair(item, side) {
+  const exists = !!item[side];
+  const expected = side === "before" ? item.before_expected_value : item.after_expected_value;
+  const actual = side === "before" ? item.before_actual_value : item.after_actual_value;
+  return `<div class="compare-value">期望 ${compareValueHtml(expected, exists)}</div>
+    <div class="compare-value">实际 ${compareValueHtml(actual, exists)}</div>`;
+}
+
+function compareRelativeHtml(item) {
+  if (item.relative_change === null || item.relative_change === undefined) {
+    if (item.absolute_change === null || item.absolute_change === undefined) {
+      return `<span class="status-wait">—</span>`;
+    }
+    return `<span class="compare-value">Δ ${esc(compareNumber(item.absolute_change, 6))}</span>`;
+  }
+  const percent = Number(item.relative_change) * 100;
+  let text;
+  if (Math.abs(percent) >= 10000 || (Math.abs(percent) > 0 && Math.abs(percent) < 0.01)) {
+    text = percent.toExponential(2) + "%";
+  } else {
+    text = compareNumber(percent, 4) + "%";
+  }
+  if (percent > 0) text = "+" + text;
+  const absolute = item.absolute_change === null || item.absolute_change === undefined
+    ? ""
+    : `<div class="hint" style="margin:2px 0 0">Δ ${esc(compareNumber(item.absolute_change, 6))}</div>`;
+  return `<span class="compare-value">${esc(text)}</span>${absolute}`;
+}
+
+function compareCheckStatus(passed) {
+  if (passed === null || passed === undefined) return "缺失";
+  return passed ? "通过" : "失败";
+}
+
+function compareCheckNote(item) {
+  if (!item.before) return "检查项仅出现在对比版本";
+  if (!item.after) return "检查项仅出现在基准版本";
+  const notes = [];
+  const beforeError = String(item.before.error || "").trim();
+  const afterError = String(item.after.error || "").trim();
+  if (afterError) notes.push("对比：" + afterError);
+  else if (beforeError) notes.push("基准：" + beforeError);
+  if (String(item.before_expected_value) !== String(item.after_expected_value)) {
+    notes.push("期望值已变化");
+  }
+  if (!notes.length && item.change_type === "changed") {
+    notes.push("实际值或检查状态发生变化");
+  }
+  return notes.join("；");
+}
+
+function renderCompareChecks() {
+  if (!compareResult) return;
+  const filter = document.getElementById("compareCheckFilter").value;
+  const caseNo = document.getElementById("compareCheckCase").value;
+  const search = document.getElementById("compareCheckSearch").value.trim().toLowerCase();
+  const rows = compareResult.check_changes || [];
+  const filtered = rows.filter(item => {
+    if (caseNo && item.case_no !== caseNo) return false;
+    if (!compareFilterMatches(item.change_type, filter)) return false;
+    if (!search) return true;
+    return [item.case_no, item.key, item.display_key]
+      .some(value => String(value || "").toLowerCase().includes(search));
+  });
+  const body = document.getElementById("compareCheckRows");
+  body.innerHTML = filtered.length ? filtered.map(item => {
+    const note = compareCheckNote(item);
+    return `<tr>
+      <td><span class="compare-value">${esc(item.case_no)}</span></td>
+      <td><span class="compare-value">${esc(item.display_key || item.key || "未命名检查项")}</span></td>
+      <td>${compareValuePair(item, "before")}</td>
+      <td>${compareValuePair(item, "after")}</td>
+      <td>${compareRelativeHtml(item)}</td>
+      <td>${compareChangePill(item.change_type)}
+        <div class="hint" style="margin:4px 0 0">${esc(compareCheckStatus(item.before_passed))} → ${esc(compareCheckStatus(item.after_passed))}</div>
+      </td>
+      <td>${note
+        ? `<div class="compare-error-detail">${esc(note)}</div>`
+        : `<span class="status-wait">-</span>`}</td>
+    </tr>`;
+  }).join("") : `<tr><td colspan="7" class="compare-empty">没有符合当前筛选条件的检查项。</td></tr>`;
+  document.getElementById("compareCheckCount").textContent =
+    `显示 ${filtered.length} / ${rows.length} 个检查项`;
 }
 
 /* ---------------- 关键词 ---------------- */
